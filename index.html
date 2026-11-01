@@ -54,19 +54,34 @@
   .dayhead.now { color: var(--text); font-weight: 600; }
 
   .game {
-    display: grid; grid-template-columns: 76px 1fr auto; column-gap: 16px; align-items: start;
-    padding: 12px 0; border-bottom: 1px solid var(--line);
+    display: grid; grid-template-columns: 72px 1fr; column-gap: 14px; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--line);
   }
-  .when { font-size: 13px; color: var(--muted); padding-top: 1px; line-height: 1.5; }
-  .when .live { color: var(--live); }
+  .when { font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .when .live { color: var(--live); white-space: nowrap; }
   .when .tv { display: block; font-size: 12px; color: var(--faint); }
-  .teams, .scores { display: grid; row-gap: 2px; }
-  .scores { text-align: right; min-width: 24px; }
-  .final .loser { color: var(--muted); }
-  .team { display: flex; align-items: center; gap: 10px; }
-  .logo { flex: none; width: 20px; height: 20px; display: inline-block; }
-  .logo img { width: 20px; height: 20px; object-fit: contain; display: block; }
-  .final .loser .logo { opacity: .45; }
+  .teams { display: grid; row-gap: 4px; }
+
+  /* Each team line is tinted with that team's color (--tc). */
+  .team {
+    --tc: var(--tc-light);
+    position: relative; display: flex; align-items: center; gap: 10px;
+    padding: 6px 10px 6px 14px; border-radius: 8px; overflow: hidden;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--tc) 14%, transparent), color-mix(in srgb, var(--tc) 3%, transparent) 75%);
+  }
+  .team::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--tc);
+  }
+  .team .nm { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+  .team .sc { font-weight: 600; min-width: 24px; text-align: right; }
+  .logo { flex: none; width: 24px; height: 24px; display: inline-block; }
+  .logo img { width: 24px; height: 24px; object-fit: contain; display: block; }
+
+  .final .team.loser { background: none; }
+  .final .team.loser::before { opacity: .25; }
+  .final .team.loser .nm, .final .team.loser .sc { color: var(--muted); font-weight: 400; }
+  .final .team.loser .logo { opacity: .4; filter: grayscale(1); }
+  @media (prefers-color-scheme: dark) { .team { --tc: var(--tc-dark); } }
 
   .byes { margin-top: 32px; color: var(--muted); font-size: 12px; }
   .msg { color: var(--muted); padding: 48px 0; font-size: 14px; }
@@ -214,6 +229,23 @@ function render(data) {
   stamp(anyLive || startsSoon);
 }
 
+// Pick a team color that stays visible: primary unless it's too close to the
+// page background in that theme, then fall back to the alternate color.
+function lum(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+  if (!m) return null;
+  const [r, g, b] = [0, 2, 4].map(i => parseInt(m[1].slice(i, i + 2), 16) / 255)
+    .map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+function teamColors(t) {
+  const p = "#" + (t.color || "888888"), a = "#" + (t.alternateColor || "888888");
+  const pl = lum(p) ?? 0.2, al = lum(a) ?? 0.2;
+  const light = pl < 0.8 ? p : (al < 0.8 ? a : "#888888");
+  const dark = pl > 0.06 ? p : (al > 0.06 ? a : "#9a9a9a");
+  return [light, dark];
+}
+
 function gameCard(ev) {
   const comp = ev.competitions[0];
   const state = ev.status.type.state; // pre | in | post
@@ -230,8 +262,13 @@ function gameCard(ev) {
     const dark = src.replace("/nfl/500/", "/nfl/500-dark/");
     return `<picture class="logo"><source srcset="${esc(dark)}" media="(prefers-color-scheme: dark)"><img src="${esc(src)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></picture>`;
   };
-  const name = (c) => `<div${cls(c, "team")}>${logo(c)}<span>${esc(c.team.shortDisplayName || c.team.displayName)}</span></div>`;
-  const score = (c) => `<div${cls(c)}>${state === "pre" ? "" : esc(c.score ?? "")}</div>`;
+  const team = (c) => {
+    const [light, dark] = teamColors(c.team);
+    return `<div${cls(c, "team")} style="--tc-light:${light};--tc-dark:${dark}">
+      ${logo(c)}<span class="nm">${esc(c.team.shortDisplayName || c.team.displayName)}</span>
+      <span class="sc">${state === "pre" ? "" : esc(c.score ?? "")}</span>
+    </div>`;
+  };
 
   const tv = [...new Set((comp.broadcasts || []).flatMap(b => b.names || []))].join(", ");
   let when;
@@ -239,7 +276,11 @@ function gameCard(ev) {
     when = comp.timeValid === false ? "TBD"
       : new Date(ev.date).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
   } else if (state === "in") {
-    when = `<span class="live">${esc(ev.status.type.shortDetail)}</span>`;
+    const st = ev.status;
+    const clock = st.type.name === "STATUS_IN_PROGRESS" && st.period
+      ? `${st.period > 4 ? "OT" : "Q" + st.period} ${st.displayClock}`
+      : st.type.shortDetail;
+    when = `<span class="live">${esc(clock)}</span>`;
   } else {
     when = esc(ev.status.type.shortDetail);
   }
@@ -247,8 +288,7 @@ function gameCard(ev) {
 
   return `<article class="game${state === "post" ? " final" : ""}">
     <div class="when">${when}</div>
-    <div class="teams">${name(away)}${name(home)}</div>
-    <div class="scores">${score(away)}${score(home)}</div>
+    <div class="teams">${team(away)}${team(home)}</div>
   </article>`;
 }
 
