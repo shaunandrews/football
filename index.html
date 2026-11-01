@@ -58,18 +58,13 @@
   /* A matchup tile: away color on the left, home color on the right,
      split on a diagonal, with oversized logo watermarks bleeding off the edges. */
   .game {
-    --a: #333; --h: #333; --a2: #777; --h2: #777;
+    --a: #333; --h: #333;
     position: relative; isolation: isolate; overflow: hidden;
     display: grid; grid-template-columns: 1fr 1fr; align-items: stretch;
     min-height: 112px; border-radius: 18px; color: #fff;
     background:
       linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.18)),
       linear-gradient(102deg, var(--a) calc(50% - .5px), var(--h) calc(50% + .5px));
-  }
-  /* Accent bands in each team's secondary color along the bottom. */
-  .game::after {
-    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 5px; z-index: 2;
-    background: linear-gradient(102deg, var(--a2) calc(50% - .5px), var(--h2) calc(50% + .5px));
   }
   .side { position: relative; display: flex; align-items: center; gap: 10px; padding: 34px 16px 22px; min-width: 0; }
   .side.home { flex-direction: row-reverse; text-align: right; }
@@ -106,6 +101,47 @@
   }
   @keyframes pulse { 50% { opacity: .2; } }
 
+
+  /* Game timeline: a strip across the bottom of the tile. Away events sit
+     above the midline, home events below; the white line is win probability. */
+  .tl {
+    grid-column: 1 / -1; position: relative; height: 46px; margin: 0 12px 12px;
+    border-radius: 10px; background: rgba(0,0,0,.28); overflow: hidden;
+  }
+  .tl .q { position: absolute; top: 0; bottom: 0; border-left: 1px solid rgba(255,255,255,.12); }
+  .tl .q span { position: absolute; top: 3px; left: 4px; font-size: 9px; font-weight: 700; color: rgba(255,255,255,.35); }
+  .tl .mid { position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed rgba(255,255,255,.15); }
+  .tl svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .tl .wp { fill: none; stroke: rgba(255,255,255,.75); stroke-width: 1.5; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+  .tl .fut { position: absolute; top: 0; bottom: 0; right: 0; background: rgba(0,0,0,.30); }
+  .tl .now { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #fff; box-shadow: 0 0 6px rgba(255,255,255,.8); }
+  .tl .ev {
+    position: absolute; transform: translate(-50%, -50%); z-index: 1;
+    width: 8px; height: 8px; border-radius: 50%; background: var(--c);
+    box-shadow: 0 0 0 1.5px #fff, 0 1px 3px rgba(0,0,0,.4);
+  }
+  .tl .ev.td { width: 12px; height: 12px; z-index: 2; }
+  .tl .ev.to {
+    width: 8px; height: 8px; border-radius: 1px; background: #fff;
+    box-shadow: 0 0 0 1.5px var(--c), 0 1px 3px rgba(0,0,0,.4);
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
+  .tl .ev.away { top: 28%; }
+  .tl .ev.home { top: 72%; }
+
+  .legend { display: flex; gap: 14px; font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .legend i { display: inline-block; vertical-align: middle; margin-right: 5px; border-radius: 50%; background: var(--muted); }
+  .legend .l-td { width: 10px; height: 10px; }
+  .legend .l-fg { width: 7px; height: 7px; }
+  .legend .l-to { width: 7px; height: 7px; border-radius: 1px; background: none; border: 1.5px solid var(--muted); transform: rotate(45deg); }
+  .game.has-tl .side { padding-bottom: 12px; }
+
+  @media (max-width: 600px) {
+    .games { margin: 12px -16px 0; gap: 6px; }
+    .game { border-radius: 0; }
+    .tl { margin: 0 10px 10px; }
+  }
+
   @media (max-width: 400px) {
     .side { padding: 34px 12px 20px; gap: 8px; }
     .side .logo { width: 30px; height: 30px; }
@@ -129,6 +165,7 @@
       <button id="next" aria-label="Next week">→</button>
     </div>
   </header>
+  <div class="legend" aria-hidden="true"><span><i class="l-td"></i>Touchdown</span><span><i class="l-fg"></i>FG / safety</span><span><i class="l-to"></i>Turnover</span><span>— win odds</span></div>
   <main id="main"><div class="msg">Loading games…</div></main>
   <footer>
     <button id="refresh"><span id="updated"></span></button>
@@ -143,6 +180,7 @@ let weeks = [];        // [{seasontype, week, label, detail, start, end}]
 let idx = -1;          // index into weeks currently shown
 let year = null;
 let timer = null;
+const summaries = new Map(); // event id -> parsed timeline data
 
 function buildWeeks(league) {
   const out = [];
@@ -254,9 +292,95 @@ function render(data) {
   }
 
   $("main").innerHTML = html;
+  loadTimelines(events);
   const anyLive = events.some(e => e.status?.type?.state === "in");
   const startsSoon = events.some(e => e.status?.type?.state === "pre" && new Date(e.date) - Date.now() < 15 * 60 * 1000 && new Date(e.date) > Date.now() - 3600e3);
   stamp(anyLive || startsSoon);
+}
+
+
+// ---- Timeline -------------------------------------------------------------
+function secs(clock) {
+  const [m, s] = String(clock || "0:00").split(":").map(Number);
+  return (m || 0) * 60 + (s || 0);
+}
+function elapsed(period, clock) {
+  const left = secs(clock);
+  return period <= 4 ? (period - 1) * 900 + (900 - left) : 3600 + (period - 5) * 600 + (600 - left);
+}
+
+function parseSummary(sum) {
+  const plays = [];
+  const drives = [...(sum.drives?.previous || []), ...(sum.drives?.current ? [sum.drives.current] : [])];
+  for (const d of drives) for (const p of d.plays || []) plays.push(p);
+  const when = new Map(plays.map(p => [p.id, elapsed(p.period?.number || 1, p.clock?.displayValue)]));
+  const seen = new Set();
+  const turnovers = plays.filter(p => p.isTurnover && !p.scoringPlay && !seen.has(p.id) && seen.add(p.id)).map(p => ({
+    t: when.get(p.id), team: p.end?.team?.id,
+    label: /interception/i.test(p.type?.text || "") ? "INT" : "FUM", text: p.text,
+  }));
+  const scores = (sum.scoringPlays || []).map(p => ({
+    t: elapsed(p.period?.number || 1, p.clock?.displayValue), team: p.team?.id,
+    label: { TD: "TD", FG: "FG", SF: "SF" }[p.scoringType?.abbreviation || p.type?.abbreviation] || "PTS",
+    text: `${p.text} (${p.awayScore}-${p.homeScore})`,
+  }));
+  const wp = (sum.winprobability || []).map(w => [when.get(w.playId), w.homeWinPercentage]).filter(([t]) => t != null);
+  const maxPeriod = Math.max(4, ...plays.map(p => p.period?.number || 1));
+  return { scores, turnovers, wp, maxPeriod };
+}
+
+function timeline(ev, data) {
+  const comp = ev.competitions[0];
+  const st = ev.status;
+  const home = comp.competitors.find(c => c.homeAway === "home");
+  const away = comp.competitors.find(c => c.homeAway === "away");
+  const periods = Math.max(data?.maxPeriod || 4, st.period || 4);
+  const total = 3600 + Math.max(0, periods - 4) * 600;
+  const x = (t) => 3 + 94 * Math.max(0, Math.min(1, t / total));
+
+  let html = "";
+  for (let p = 1; p <= periods; p++) {
+    const start = p <= 4 ? (p - 1) * 900 : 3600 + (p - 5) * 600;
+    html += `<div class="q" style="left:${x(start)}%"><span>${p <= 4 ? "Q" + p : "OT"}</span></div>`;
+  }
+  html += '<div class="mid"></div>';
+  if (!data) return html;
+
+  if (data.wp.length > 1) {
+    const pts = data.wp.map(([t, h]) => `${x(t).toFixed(2)},${(h * 100).toFixed(1)}`).join(" ");
+    html += `<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline class="wp" points="${pts}"/></svg>`;
+  }
+  if (st.type.state === "in") {
+    const now = x(elapsed(st.period || 1, st.displayClock));
+    html += `<div class="fut" style="left:${now}%"></div><div class="now" style="left:${now}%"></div>`;
+  }
+  const colorOf = (id) => (id === home.team.id ? "var(--h)" : "var(--a)");
+  const sideOf = (id) => (id === home.team.id ? "home" : "away");
+  for (const e of data.turnovers) {
+    if (e.t == null || !e.team) continue;
+    html += `<span class="ev to ${sideOf(e.team)}" style="left:${x(e.t)}%;--c:${colorOf(e.team)}" title="${e.label}: ${esc(e.text)}"></span>`;
+  }
+  for (const e of data.scores) {
+    if (!e.team) continue;
+    html += `<span class="ev ${e.label.toLowerCase()} ${sideOf(e.team)}" style="left:${x(e.t)}%;--c:${colorOf(e.team)}" title="${e.label}: ${esc(e.text)}"></span>`;
+  }
+  return html;
+}
+
+async function loadTimelines(events) {
+  await Promise.all(events.filter(e => e.status.type.state !== "pre").map(async (ev) => {
+    const cached = summaries.get(ev.id);
+    if (cached && cached.final) return;
+    try {
+      const res = await fetch(API.replace("/scoreboard", "/summary") + "?event=" + ev.id, { cache: "no-store" });
+      if (!res.ok) return;
+      const data = parseSummary(await res.json());
+      data.final = ev.status.type.state === "post";
+      summaries.set(ev.id, data);
+      const el = document.querySelector(`.tl[data-id="${ev.id}"]`);
+      if (el) el.innerHTML = timeline(ev, data);
+    } catch { /* timeline is a nice-to-have; leave the empty strip */ }
+  }));
 }
 
 function gameCard(ev) {
@@ -296,10 +420,10 @@ function gameCard(ev) {
     pill = `<div class="pill">${esc(st.type.shortDetail)}</div>`;
   }
 
-  const vars = `--a:${hex(away.team.color, "#333")};--h:${hex(home.team.color, "#333")};` +
-               `--a2:${hex(away.team.alternateColor, "#777")};--h2:${hex(home.team.alternateColor, "#777")}`;
-  return `<article class="game ${state === "post" ? "final" : state}" style="${vars}">
-    ${side(away, "away")}${side(home, "home")}${pill}
+  const vars = `--a:${hex(away.team.color, "#333")};--h:${hex(home.team.color, "#333")}`;
+  const tl = state === "pre" ? "" : `<div class="tl" data-id="${esc(ev.id)}">${timeline(ev, summaries.get(ev.id))}</div>`;
+  return `<article class="game ${state === "post" ? "final" : state}${tl ? " has-tl" : ""}" style="${vars}">
+    ${side(away, "away")}${side(home, "home")}${pill}${tl}
   </article>`;
 }
 
