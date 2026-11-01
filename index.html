@@ -136,6 +136,50 @@
   .legend .l-to { width: 7px; height: 7px; border-radius: 1px; background: none; border: 1.5px solid var(--muted); transform: rotate(45deg); }
   .game.has-tl .side { padding-bottom: 12px; }
 
+  /* Live game extras */
+  .ball {
+    display: inline-block; width: 12px; height: 8px; margin-left: 6px; vertical-align: 4px;
+    background: #8b4a22; border-radius: 50%; box-shadow: 0 0 0 1.5px #fff;
+    position: relative;
+  }
+  .ball::after { content: ""; position: absolute; left: 3px; right: 3px; top: 3.5px; height: 1px; background: #fff; }
+  .tos { display: inline-flex; gap: 3px; vertical-align: middle; }
+  .tos b { width: 10px; height: 3px; border-radius: 2px; background: rgba(255,255,255,.25); }
+  .tos b.on { background: #fff; }
+
+  .field { grid-column: 1 / -1; margin: 0 12px 8px; }
+  .pitch {
+    position: relative; height: 22px; border-radius: 6px; overflow: hidden;
+    background: rgba(0,0,0,.28);
+  }
+  .pitch .ez { position: absolute; top: 0; bottom: 0; width: 8%; }
+  .pitch .ez.a { left: 0; background: color-mix(in srgb, var(--a) 80%, #000); }
+  .pitch .ez.h { right: 0; background: color-mix(in srgb, var(--h) 80%, #000); }
+  .pitch .yl { position: absolute; top: 0; bottom: 0; border-left: 1px solid rgba(255,255,255,.14); }
+  .pitch .yl.fifty { border-left-color: rgba(255,255,255,.3); }
+  .pitch .gain { position: absolute; top: 4px; bottom: 4px; background: rgba(255,255,255,.18); }
+  .pitch .fd { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #ffd400; box-shadow: 0 0 6px #ffd400; }
+  .pitch .fb {
+    position: absolute; top: 50%; width: 14px; height: 9px; margin: -4.5px 0 0 -7px; z-index: 1;
+    background: #8b4a22; border-radius: 50%; box-shadow: 0 0 0 1.5px #fff, 0 0 10px rgba(255,255,255,.6);
+  }
+  .pitch .fb::after { content: ""; position: absolute; top: 50%; border: 4px solid transparent; margin-top: -4px; }
+  .pitch .fb.r::after { left: 100%; margin-left: 3px; border-left-color: #fff; }
+  .pitch .fb.l::after { right: 100%; margin-right: 3px; border-right-color: #fff; }
+  .sit { margin-top: 6px; font-size: 12px; font-weight: 700; display: flex; gap: 8px; align-items: baseline; min-width: 0; }
+  .sit .last { font-weight: 400; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
+  .rzt { background: var(--live); color: #fff; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; padding: 2px 6px; border-radius: 4px; flex: none; }
+  .game.rz { box-shadow: inset 0 0 0 2px var(--live), 0 0 24px color-mix(in srgb, var(--live) 35%, transparent); }
+
+  /* Score change: the number pops and its side flashes. */
+  .side.bump .sc { animation: pop 1.2s ease-out; }
+  .side.bump::before {
+    content: ""; position: absolute; inset: 0; z-index: -1; background: #fff; opacity: 0;
+    animation: flash 1.6s ease-out;
+  }
+  @keyframes pop { 0% { transform: scale(1); } 15% { transform: scale(1.45); } 100% { transform: scale(1); } }
+  @keyframes flash { 0% { opacity: .35; } 100% { opacity: 0; } }
+
   @media (max-width: 600px) {
     .games { margin: 12px -16px 0; gap: 6px; }
     .game { border-radius: 0; }
@@ -227,15 +271,20 @@ async function init() {
   }
 }
 
-async function loadWeek() {
+let loadSeq = 0;
+// silent = background refresh: keep what's on screen and patch it in place.
+async function loadWeek(silent = false) {
   const w = weeks[idx];
+  const seq = ++loadSeq;
   updateNav();
-  $("main").innerHTML = '<div class="msg">Loading games…</div>';
+  if (!silent) $("main").innerHTML = '<div class="msg">Loading games…</div>';
   try {
     const data = await fetchBoard({ seasontype: w.seasontype, week: w.week, dates: year });
+    if (seq !== loadSeq) return; // user moved to another week meanwhile
     render(data);
   } catch (err) {
-    showError(err);
+    if (!silent) showError(err);
+    else stamp(true); // try again on the next tick
   }
 }
 
@@ -291,7 +340,7 @@ function render(data) {
     html += `<div class="byes">Bye — ${byes.map(t => esc(t.shortDisplayName || t.displayName)).join(", ")}</div>`;
   }
 
-  $("main").innerHTML = html;
+  patchMain(html);
   loadTimelines(events);
   const anyLive = events.some(e => e.status?.type?.state === "in");
   const startsSoon = events.some(e => e.status?.type?.state === "pre" && new Date(e.date) - Date.now() < 15 * 60 * 1000 && new Date(e.date) > Date.now() - 3600e3);
@@ -367,20 +416,70 @@ function timeline(ev, data) {
   return html;
 }
 
+function scoreKey(ev) {
+  return ev.competitions[0].competitors.map(c => c.score).join("-") + "|" + ev.status.type.state;
+}
+const prevScores = new Map(); // "eventId:teamId" -> score, to animate changes
+
 async function loadTimelines(events) {
   await Promise.all(events.filter(e => e.status.type.state !== "pre").map(async (ev) => {
     const cached = summaries.get(ev.id);
     if (cached && cached.final) return;
+    const key = scoreKey(ev);
+    if (cached && cached.key === key && Date.now() - cached.at < 60000) return;
     try {
       const res = await fetch(API.replace("/scoreboard", "/summary") + "?event=" + ev.id, { cache: "no-store" });
       if (!res.ok) return;
       const data = parseSummary(await res.json());
       data.final = ev.status.type.state === "post";
+      data.key = key;
+      data.at = Date.now();
       summaries.set(ev.id, data);
       const el = document.querySelector(`.tl[data-id="${ev.id}"]`);
-      if (el) el.innerHTML = timeline(ev, data);
+      const out = timeline(ev, data);
+      if (el && el.innerHTML !== out) el.innerHTML = out;
     } catch { /* timeline is a nice-to-have; leave the empty strip */ }
   }));
+}
+
+function hashStr(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
+// Mini field for a live game. Away team defends the left end zone and drives
+// right; home defends the right. ESPN's yardLine is the number on the field
+// (0-50); possessionText ("BAL 47") says whose half it's in. We convert it to
+// yards from the home goal line.
+function fieldView(sit, away, home) {
+  const [sideAbbr, num] = String(sit.possessionText || "").split(" ");
+  const n = Number(num ?? sideAbbr);
+  const line = !Number.isFinite(n) ? NaN
+    : sideAbbr === home.team.abbreviation ? n
+    : sideAbbr === away.team.abbreviation ? 100 - n
+    : 50;
+  const ball = sit.possession;
+  const known = Number.isFinite(line) && (ball === home.team.id || ball === away.team.id);
+  const pos = (yds) => 8 + 84 * ((100 - yds) / 100); // % across, inside end zones
+  let marks = "";
+  if (known) {
+    const dir = ball === away.team.id ? 1 : -1;      // +1 = toward the right
+    const ballX = pos(line);
+    if (sit.distance && sit.down) {
+      const fd = Math.max(0, Math.min(100, line - dir * sit.distance));
+      const toX = pos(fd);
+      marks += `<span class="gain" style="left:${Math.min(ballX, toX)}%;width:${Math.abs(toX - ballX)}%"></span>`;
+      marks += `<span class="fd" style="left:${toX}%"></span>`;
+    }
+    marks += `<span class="fb ${dir > 0 ? "r" : "l"}" style="left:${ballX}%"></span>`;
+  }
+  const text = sit.downDistanceText || sit.possessionText || "";
+  const last = sit.lastPlay?.text || "";
+  return `<div class="field">
+    <div class="pitch"><span class="ez a"></span><span class="ez h"></span>${[20, 40, 60, 80].map(y => `<span class="yl" style="left:${8 + 84 * y / 100}%"></span>`).join("")}<span class="yl fifty" style="left:50%"></span>${marks}</div>
+    <div class="sit">${sit.isRedZone ? '<b class="rzt">Red zone</b>' : ""}${esc(text)}${last ? `<span class="last">${esc(last.trim())}</span>` : ""}</div>
+  </div>`;
 }
 
 function gameCard(ev) {
@@ -392,15 +491,22 @@ function gameCard(ev) {
   const decided = state === "post" && (home.winner || away.winner);
   const hex = (v, fb) => (/^[0-9a-f]{6}$/i.test(v || "") ? "#" + v : fb);
 
+  const sit = state === "in" ? comp.situation : null;
   const side = (c, which) => {
     const t = c.team;
+    const k = ev.id + ":" + t.id;
+    const prev = prevScores.get(k);
+    const bumped = prev != null && c.score != null && prev !== c.score;
+    if (c.score != null) prevScores.set(k, c.score);
+    const hasBall = sit && sit.possession === t.id;
+    const tos = sit ? sit[which + "Timeouts"] : null;
     const logo = esc(t.logo || "");
     const rec = c.records?.find(r => r.type === "total")?.summary || c.records?.[0]?.summary || "";
     const sub = state === "pre" && rec ? `${t.shortDisplayName} · ${rec}` : t.shortDisplayName;
-    return `<div class="side ${which}${decided && !c.winner ? " lost" : ""}">
+    return `<div class="side ${which}${decided && !c.winner ? " lost" : ""}${bumped ? " bump" : ""}">
       ${logo ? `<img class="mark" src="${logo}" alt="" loading="lazy" onerror="this.remove()">` : ""}
       ${logo ? `<img class="logo" src="${logo}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : ""}
-      <div class="id"><span class="ab">${esc(t.abbreviation || "")}</span><span class="nm">${esc(sub || "")}</span></div>
+      <div class="id"><span class="ab">${esc(t.abbreviation || "")}${hasBall ? '<i class="ball" title="Has the ball"></i>' : ""}</span><span class="nm">${tos != null ? `<span class="tos" title="${tos} timeouts left">${[0,1,2].map(i => `<b class="${i < tos ? "on" : ""}"></b>`).join("")}</span>` : esc(sub || "")}</span></div>
       ${state === "pre" ? "" : `<span class="sc">${esc(c.score ?? "")}</span>`}
     </div>`;
   };
@@ -421,16 +527,41 @@ function gameCard(ev) {
   }
 
   const vars = `--a:${hex(away.team.color, "#333")};--h:${hex(home.team.color, "#333")}`;
+  const field = sit ? fieldView(sit, away, home) : "";
   const tl = state === "pre" ? "" : `<div class="tl" data-id="${esc(ev.id)}">${timeline(ev, summaries.get(ev.id))}</div>`;
-  return `<article class="game ${state === "post" ? "final" : state}${tl ? " has-tl" : ""}" style="${vars}">
-    ${side(away, "away")}${side(home, "home")}${pill}${tl}
+  const body = `${side(away, "away")}${side(home, "home")}${pill}${field}${tl}`;
+  return `<article class="game ${state === "post" ? "final" : state}${tl ? " has-tl" : ""}${sit?.isRedZone ? " rz" : ""}" data-id="${esc(ev.id)}" data-sig="${hashStr(body)}" style="${vars}">
+    ${body}
   </article>`;
+}
+
+// Swap in new markup without blowing away the page: if the same games are on
+// screen, only replace the tiles that changed. Scroll position never moves.
+function patchMain(html) {
+  const main = $("main");
+  const next = document.createElement("div");
+  next.innerHTML = html;
+  const ids = (root) => [...root.querySelectorAll("article.game")].map(a => a.dataset.id).join(",");
+  if (main.querySelector("article.game") && ids(main) === ids(next)) {
+    for (const fresh of next.querySelectorAll("article.game")) {
+      const old = main.querySelector(`article.game[data-id="${fresh.dataset.id}"]`);
+      if (old && old.dataset.sig !== fresh.dataset.sig) old.replaceWith(fresh);
+    }
+    main.querySelectorAll(".dayhead").forEach((el, i) => {
+      const n = next.querySelectorAll(".dayhead")[i];
+      if (n && el.outerHTML !== n.outerHTML) el.replaceWith(n);
+    });
+  } else {
+    const y = window.scrollY;
+    main.replaceChildren(...next.childNodes);
+    window.scrollTo(0, y);
+  }
 }
 
 function stamp(live) {
   $("updated").textContent = "Updated " + new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
   clearTimeout(timer);
-  if (live) timer = setTimeout(loadWeek, 30000); // keep scores fresh during games
+  if (live) timer = setTimeout(() => loadWeek(true), 15000); // keep scores fresh during games
 }
 
 function showError(err) {
@@ -443,8 +574,8 @@ function esc(s) {
 
 $("prev").onclick = () => { if (idx > 0) { idx--; loadWeek(); } };
 $("next").onclick = () => { if (idx < weeks.length - 1) { idx++; loadWeek(); } };
-$("refresh").onclick = () => (idx >= 0 ? loadWeek() : init());
-document.addEventListener("visibilitychange", () => { if (!document.hidden && idx >= 0) loadWeek(); });
+$("refresh").onclick = () => (idx >= 0 ? loadWeek(true) : init());
+document.addEventListener("visibilitychange", () => { if (!document.hidden && idx >= 0) loadWeek(true); });
 
 init();
 </script>
