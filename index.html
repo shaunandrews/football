@@ -216,9 +216,31 @@
     width: 36px; height: 36px; border-radius: 50%; border: 0; cursor: pointer;
     background: rgba(0,0,0,.45); color: #fff; font-size: 22px; line-height: 1; backdrop-filter: blur(6px);
   }
+  /* Cupertino Pane (mobile sheet) */
+  :root {
+    --cupertino-pane-background: var(--bg);
+    --cupertino-pane-color: var(--text);
+    --cupertino-pane-border-radius: 22px;
+    --cupertino-pane-shadow: 0 -10px 40px rgba(0,0,0,.35);
+    --cupertino-pane-move-background: rgba(255,255,255,.75);
+  }
+  .pane-sheet { padding: 0 !important; }
+  .pane-sheet .sheet-body { padding-bottom: calc(40px + env(safe-area-inset-bottom)); }
+  .pane-sheet .x { position: absolute; top: 12px; right: 12px; float: none; margin: 0; }
+  .cupertino-pane-wrapper .pane { overflow: hidden; padding-top: 0 !important; }
+  /* Grab handle floats over the team-color header. */
+  .cupertino-pane-wrapper .draggable { z-index: 20; top: 0 !important; pointer-events: none; }
+  .cupertino-pane-wrapper .draggable .move { background: rgba(255,255,255,.7) !important; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+
+  /* Big header: each team stacked like a scoreboard so nothing truncates. */
+  .hero .game .side, .hero .game .side.home { flex-direction: column; justify-content: center; text-align: center; gap: 6px; }
+  .hero .game .side .id { justify-items: center; flex: none; }
+  .hero .game .side .sc { margin: 0; }
+
   .hero .game { border-radius: 22px 22px 0 0; cursor: default; min-height: 150px; }
   .hero .game:active { transform: none; }
-  .hero .game .side { padding-top: 48px; }
+  .hero .game .side { padding-top: 64px; padding-bottom: 14px; }
+  .hero .game .pill { top: 30px; }
   .hero .game .sc { font-size: 44px; }
   .hero .game .logo { width: 48px; height: 48px; }
   .hero .game .mark { width: 200px; height: 200px; }
@@ -315,6 +337,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/cupertino-pane@1.5.4/dist/cupertino-pane.min.js"></script>
 <script>
 const API = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard";
 const $ = (id) => document.getElementById(id);
@@ -737,6 +760,16 @@ async function getSummary(id, maxAge) {
   return raw;
 }
 
+// Phones get a real draggable bottom sheet (Cupertino Pane: swipe down to
+// dismiss, momentum, backdrop, scroll hand-off). Wider screens keep the
+// centered panel.
+const mobileQuery = matchMedia("(max-width: 699px)");
+let pane = null;          // CupertinoPane instance while open on mobile
+let paneBody = null;      // its content element
+
+function sheetBody() { return pane ? paneBody : $("sheetBody"); }
+function sheetScroller() { return pane ? paneBody : $("sheet").querySelector(".panel"); }
+
 function openGame(id) {
   if (location.hash !== "#g" + id) location.hash = "g" + id;
   else showSheet(id);
@@ -748,23 +781,69 @@ function hideSheet() {
   sheetId = null;
   $("sheet").hidden = true;
   document.body.classList.remove("locked");
+  if (pane) {
+    const p = pane;
+    pane = null;
+    if (p.isPanePresented()) p.destroy({ animate: true });
+  }
 }
 function onHash() {
   const m = /^#g(\d+)$/.exec(location.hash);
   if (m) showSheet(m[1]); else hideSheet();
 }
 
+function mountSheet() {
+  if (!(mobileQuery.matches && window.CupertinoPane)) {
+    $("sheet").hidden = false;
+    document.body.classList.add("locked");
+    $("sheet").querySelector(".panel").scrollTop = 0;
+    return;
+  }
+  if (pane) { paneBody.scrollTop = 0; return; }
+  const el = document.createElement("div");
+  el.className = "pane-sheet";
+  el.innerHTML = '<button class="x" aria-label="Close">×</button><div class="sheet-body" overflow-y></div>';
+  document.body.appendChild(el);
+  paneBody = el.querySelector(".sheet-body");
+  el.querySelector(".x").addEventListener("click", closeSheet);
+  pane = new CupertinoPane(el, {
+    parentElement: "body",
+    backdrop: true,
+    backdropOpacity: 0.55,
+    bottomClose: true,
+    fastSwipeClose: true,
+    buttonDestroy: false,
+    showDraggable: true,
+    draggableOver: true,
+    breaks: {
+      top: { enabled: true, height: window.innerHeight - 28, bounce: true },
+      middle: { enabled: false },
+      bottom: { enabled: false },
+    },
+    initialBreak: "top",
+    events: {
+      onBackdropTap: () => closeSheet(),
+      onDidDismiss: () => {
+        // Swiped away: drop our state and the #g hash, then clean up the node.
+        const wasOpen = pane;
+        pane = null;
+        el.remove();
+        if (wasOpen && sheetId) { sheetId = null; if (location.hash.startsWith("#g")) history.back(); }
+      },
+    },
+  });
+  pane.present({ animate: true });
+}
+
 async function showSheet(id) {
   const ev = currentEvents.get(id);
   sheetId = id;
-  $("sheet").hidden = false;
-  document.body.classList.add("locked");
-  if (!ev) { $("sheetBody").innerHTML = '<div class="msg">Game not in this week.</div>'; return; }
-  $("sheetBody").innerHTML = detailHTML(ev, rawSummaries.get(id)?.raw);
-  $("sheet").querySelector(".panel").scrollTop = 0;
+  mountSheet();
+  if (!ev) { sheetBody().innerHTML = '<div class="msg">Game not in this week.</div>'; return; }
+  sheetBody().innerHTML = detailHTML(ev, rawSummaries.get(id)?.raw);
   try {
     const raw = await getSummary(id, ev.status.type.state === "post" ? Infinity : 15000);
-    if (sheetId === id) $("sheetBody").innerHTML = detailHTML(currentEvents.get(id) || ev, raw);
+    if (sheetId === id) sheetBody().innerHTML = detailHTML(currentEvents.get(id) || ev, raw);
   } catch (err) { /* header still shows; sections need the summary */ }
 }
 
@@ -777,11 +856,11 @@ async function refreshSheet() {
   if (ev.status.type.state === "in") { try { raw = await getSummary(id, 15000); } catch {} }
   if (sheetId !== id) return;
   const html = detailHTML(ev, raw);
-  const body = $("sheetBody");
+  const body = sheetBody();
   if (body.innerHTML !== html) {
-    const panel = $("sheet").querySelector(".panel"), y = panel.scrollTop;
+    const scroller = sheetScroller(), y = scroller.scrollTop;
     body.innerHTML = html;
-    panel.scrollTop = y;
+    scroller.scrollTop = y;
   }
 }
 
