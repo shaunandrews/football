@@ -113,29 +113,20 @@
   .tl .q { position: absolute; top: 0; bottom: 0; border-left: 1px solid rgba(255,255,255,.12); }
   .tl .q span { position: absolute; top: 3px; left: 4px; font-size: 9px; font-weight: 700; color: rgba(255,255,255,.35); }
   .tl .mid { position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed rgba(255,255,255,.15); }
-  .tl svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .tl > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
   .tl .wp { fill: none; stroke: rgba(255,255,255,.75); stroke-width: 1.5; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
   .tl .fut { position: absolute; top: 0; bottom: 0; right: 0; background: rgba(0,0,0,.30); }
   .tl .now { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #fff; box-shadow: 0 0 6px rgba(255,255,255,.8); }
-  .tl .ev {
-    position: absolute; transform: translate(-50%, -50%); z-index: 1;
-    width: 8px; height: 8px; border-radius: 50%; background: var(--c);
-    box-shadow: 0 0 0 1.5px #fff, 0 1px 3px rgba(0,0,0,.4);
-  }
-  .tl .ev.td { width: 12px; height: 12px; z-index: 2; }
-  .tl .ev.to {
-    width: 8px; height: 8px; border-radius: 1px; background: #fff;
-    box-shadow: 0 0 0 1.5px var(--c), 0 1px 3px rgba(0,0,0,.4);
-    transform: translate(-50%, -50%) rotate(45deg);
-  }
+  .tl .ev { position: absolute; transform: translate(-50%, -50%); z-index: 1; display: block; line-height: 0; filter: drop-shadow(0 1px 2px rgba(0,0,0,.45)); }
+  .tl .ev.td { z-index: 2; }
+  .tl .ev svg { display: block; overflow: visible; }
   .tl .ev.away { top: 28%; }
   .tl .ev.home { top: 72%; }
 
   .legend { display: flex; gap: 14px; font-size: 11px; color: var(--muted); margin-top: 6px; }
-  .legend i { display: inline-block; vertical-align: middle; margin-right: 5px; border-radius: 50%; background: var(--muted); }
-  .legend .l-td { width: 10px; height: 10px; }
-  .legend .l-fg { width: 7px; height: 7px; }
-  .legend .l-to { width: 7px; height: 7px; border-radius: 1px; background: none; border: 1.5px solid var(--muted); transform: rotate(45deg); }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .legend svg { overflow: visible; }
+  .legend { flex-wrap: wrap; row-gap: 4px; }
   .game.has-tl .side { padding-bottom: 12px; }
 
   /* Live game extras */
@@ -271,6 +262,7 @@
   .scoring .sp { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: start; padding: 10px 0 10px 10px; border-left: 3px solid var(--c); margin-bottom: 6px; }
   .scoring .sp img { width: 28px; height: 28px; object-fit: contain; }
   .scoring .sp b { font-size: 13px; }
+  .scoring .spk { vertical-align: -1px; margin-right: 2px; overflow: visible; }
   .scoring .sp .clk { font-size: 12px; color: var(--muted); }
   .scoring .sp p { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
   .scoring .run { font-weight: 800; font-size: 14px; white-space: nowrap; }
@@ -321,7 +313,7 @@
       <button id="next" aria-label="Next week">→</button>
     </div>
   </header>
-  <div class="legend" aria-hidden="true"><span><i class="l-td"></i>Touchdown</span><span><i class="l-fg"></i>FG / safety</span><span><i class="l-to"></i>Turnover</span><span>— win odds</span></div>
+  <div class="legend" id="legend" aria-hidden="true"></div>
   <div class="sortbar" id="sortbar" hidden></div>
   <main id="main"><div class="msg">Loading games…</div></main>
   <footer>
@@ -538,11 +530,6 @@ function parseSummary(sum) {
   const drives = [...(sum.drives?.previous || []), ...(sum.drives?.current ? [sum.drives.current] : [])];
   for (const d of drives) for (const p of d.plays || []) plays.push(p);
   const when = new Map(plays.map(p => [p.id, elapsed(p.period?.number || 1, p.clock?.displayValue)]));
-  const seen = new Set();
-  const turnovers = plays.filter(p => p.isTurnover && !p.scoringPlay && !seen.has(p.id) && seen.add(p.id)).map(p => ({
-    t: when.get(p.id), team: p.end?.team?.id,
-    label: /interception/i.test(p.type?.text || "") ? "INT" : "FUM", text: p.text,
-  }));
   const scores = (sum.scoringPlays || []).map(p => ({
     t: elapsed(p.period?.number || 1, p.clock?.displayValue), team: p.team?.id,
     label: { TD: "TD", FG: "FG", SF: "SF" }[p.scoringType?.abbreviation || p.type?.abbreviation] || "PTS",
@@ -550,7 +537,7 @@ function parseSummary(sum) {
   }));
   const wp = (sum.winprobability || []).map(w => [when.get(w.playId), w.homeWinPercentage]).filter(([t]) => t != null);
   const maxPeriod = Math.max(4, ...plays.map(p => p.period?.number || 1));
-  return { scores, turnovers, wp, maxPeriod };
+  return { scores, wp, maxPeriod };
 }
 
 function timeline(ev, data) {
@@ -580,13 +567,10 @@ function timeline(ev, data) {
   }
   const colorOf = (id) => (id === home.team.id ? "var(--h)" : "var(--a)");
   const sideOf = (id) => (id === home.team.id ? "home" : "away");
-  for (const e of data.turnovers) {
-    if (e.t == null || !e.team) continue;
-    html += `<span class="ev to ${sideOf(e.team)}" style="left:${x(e.t)}%;--c:${colorOf(e.team)}" title="${e.label}: ${esc(e.text)}"></span>`;
-  }
   for (const e of data.scores) {
     if (!e.team) continue;
-    html += `<span class="ev ${e.label.toLowerCase()} ${sideOf(e.team)}" style="left:${x(e.t)}%;--c:${colorOf(e.team)}" title="${e.label}: ${esc(e.text)}"></span>`;
+    const k = shapeKind(e.label);
+    html += `<span class="ev ${k} ${sideOf(e.team)}" style="left:${x(e.t)}%" title="${e.label}: ${esc(e.text)}">${shapeSVG(k, colorOf(e.team))}</span>`;
   }
   return html;
 }
@@ -595,6 +579,22 @@ function scoreKey(ev) {
   return ev.competitions[0].competitors.map(c => c.score).join("-") + "|" + ev.status.type.state;
 }
 const prevScores = new Map(); // "eventId:teamId" -> score, to animate changes
+
+// One shape per play type so they read without color:
+// touchdown = circle, field goal = triangle, safety = square.
+function shapeKind(label) {
+  return { TD: "td", FG: "fg", SF: "sf" }[label] || "sf";
+}
+function shapeSVG(kind, color, size) {
+  const s = size ?? { td: 15, fg: 14, sf: 12 }[kind];
+  const st = 'stroke="#fff" stroke-width="1.6" stroke-linejoin="round"';
+  const body = {
+    td: `<circle cx="8" cy="8" r="6.4" style="fill:${color}" ${st}/>`,
+    fg: `<polygon points="8,1.2 15,14 1,14" style="fill:${color}" ${st}/>`,
+    sf: `<rect x="1.8" y="1.8" width="12.4" height="12.4" rx="1.5" style="fill:${color}" ${st}/>`,
+  }[kind];
+  return `<svg width="${s}" height="${s}" viewBox="0 0 16 16" aria-hidden="true">${body}</svg>`;
+}
 
 async function loadTimelines(events) {
   await Promise.all(events.filter(e => e.status.type.state !== "pre").map(async (ev) => {
@@ -918,7 +918,7 @@ function detailHTML(ev, raw) {
       const t = teamById(p.team?.id);
       items += `<li class="sp" style="--c:${colorOf(p.team?.id)}">
         <img src="${esc(t.team.logo || "")}" alt="">
-        <div><b>${esc(p.type?.text || p.scoringType?.displayName || "")}</b> <span class="clk">${esc(p.clock?.displayValue || "")}</span><p>${esc(p.text || "")}</p></div>
+        <div>${shapeSVG(shapeKind(p.scoringType?.abbreviation || p.type?.abbreviation), colorOf(p.team?.id), 12).replace("<svg", '<svg class="spk"')} <b>${esc(p.type?.text || p.scoringType?.displayName || "")}</b> <span class="clk">${esc(p.clock?.displayValue || "")}</span><p>${esc(p.text || "")}</p></div>
         <span class="run">${p.awayScore}–${p.homeScore}</span></li>`;
     }
     html += `<section class="sec"><h3>Scoring</h3><ul class="scoring">${items}</ul></section>`;
@@ -976,6 +976,9 @@ $("sortbar").addEventListener("click", (e) => {
 $("sheet").addEventListener("click", (e) => { if (e.target.closest("[data-close]")) closeSheet(); });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && sheetId) closeSheet(); });
 window.addEventListener("hashchange", onHash);
+
+$("legend").innerHTML = [["td", "Touchdown"], ["fg", "Field goal"], ["sf", "Safety"]]
+  .map(([k, label]) => `<span>${shapeSVG(k, "var(--muted)", 11)}${label}</span>`).join("") + "<span>— win odds</span>";
 
 $("prev").onclick = () => { if (idx > 0) { idx--; loadWeek(); } };
 $("next").onclick = () => { if (idx < weeks.length - 1) { idx++; loadWeek(); } };
