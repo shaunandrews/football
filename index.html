@@ -16,6 +16,7 @@
     --faint: #b8b8b8;
     --line: #ececec;
     --live: #e5484d;
+    --chip: #f1f1f1;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -25,6 +26,7 @@
       --faint: #4a4a4a;
       --line: #1c1c1c;
       --live: #ff6369;
+      --chip: #1a1a1a;
     }
   }
   * { box-sizing: border-box; }
@@ -180,6 +182,94 @@
   @keyframes pop { 0% { transform: scale(1); } 15% { transform: scale(1.45); } 100% { transform: scale(1); } }
   @keyframes flash { 0% { opacity: .35; } 100% { opacity: 0; } }
 
+
+  .game { cursor: pointer; transition: transform .15s ease; }
+  .game:active { transform: scale(.985); }
+  .livehead { color: var(--live) !important; }
+  .livehead::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--live); margin-right: 8px; vertical-align: 1px; animation: pulse 1.4s infinite; }
+
+  /* Sort chips */
+  .sortbar { display: flex; gap: 6px; margin: 18px -16px 0; padding: 0 16px; overflow-x: auto; scrollbar-width: none; }
+  .sortbar::-webkit-scrollbar { display: none; }
+  .sortbar button {
+    flex: none; appearance: none; border: 0; cursor: pointer; font: inherit; font-size: 13px; font-weight: 600;
+    padding: 7px 13px; border-radius: 999px; background: var(--chip); color: var(--muted);
+  }
+  .sortbar button.on { background: var(--text); color: var(--bg); }
+
+  /* Details sheet */
+  body.locked { overflow: hidden; }
+  .sheet { position: fixed; inset: 0; z-index: 50; }
+  .sheet[hidden] { display: none; }
+  .scrim { position: absolute; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(3px); animation: fade .2s ease; }
+  .panel {
+    position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
+    width: min(640px, 100%); max-height: 94vh; overflow-y: auto; overscroll-behavior: contain;
+    background: var(--bg); border-radius: 22px 22px 0 0; padding: 0 0 40px;
+    box-shadow: 0 -10px 40px rgba(0,0,0,.35); animation: rise .28s cubic-bezier(.2,.8,.2,1);
+  }
+  @media (min-width: 700px) { .panel { bottom: auto; top: 4vh; max-height: 92vh; border-radius: 22px; } }
+  @keyframes rise { from { transform: translate(-50%, 40px); opacity: 0; } }
+  @keyframes fade { from { opacity: 0; } }
+  .x {
+    position: sticky; top: 10px; float: right; margin: 10px 10px -46px 0; z-index: 10;
+    width: 36px; height: 36px; border-radius: 50%; border: 0; cursor: pointer;
+    background: rgba(0,0,0,.45); color: #fff; font-size: 22px; line-height: 1; backdrop-filter: blur(6px);
+  }
+  .hero .game { border-radius: 22px 22px 0 0; cursor: default; min-height: 150px; }
+  .hero .game:active { transform: none; }
+  .hero .game .side { padding-top: 48px; }
+  .hero .game .sc { font-size: 44px; }
+  .hero .game .logo { width: 48px; height: 48px; }
+  .hero .game .mark { width: 200px; height: 200px; }
+  @media (min-width: 700px) { .hero .game { border-radius: 22px 22px 0 0; } }
+
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px 16px; margin: 0; padding: 18px 16px; border-bottom: 1px solid var(--line); }
+  .facts dt { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .facts dd { margin: 2px 0 0; font-size: 14px; font-weight: 600; }
+
+  .sec { padding: 18px 16px 4px; }
+  .sec h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; margin: 0 0 12px; }
+  .sec h3 span { text-transform: none; letter-spacing: 0; color: var(--muted); font-weight: 500; margin-left: 6px; }
+
+  .plays { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 13px; }
+  .plays li { padding: 10px 12px; border-radius: 10px; background: var(--chip); }
+  .plays li b { display: block; font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+  .plays li:first-child { background: color-mix(in srgb, var(--live) 14%, var(--chip)); }
+
+  .linescore { width: 100%; border-collapse: collapse; font-size: 14px; text-align: center; }
+  .linescore th { font-size: 11px; color: var(--muted); font-weight: 600; padding: 4px; }
+  .linescore td { padding: 8px 4px; border-top: 1px solid var(--line); }
+  .linescore .tm { text-align: left; font-weight: 700; white-space: nowrap; }
+  .linescore .tm img { width: 20px; height: 20px; vertical-align: -5px; margin-right: 8px; }
+  .linescore .tot { font-weight: 800; font-size: 16px; }
+
+  .scoring { list-style: none; margin: 0; padding: 0; }
+  .scoring .qh { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding: 10px 0 6px; }
+  .scoring .sp { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: start; padding: 10px 0 10px 10px; border-left: 3px solid var(--c); margin-bottom: 6px; }
+  .scoring .sp img { width: 28px; height: 28px; object-fit: contain; }
+  .scoring .sp b { font-size: 13px; }
+  .scoring .sp .clk { font-size: 12px; color: var(--muted); }
+  .scoring .sp p { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+  .scoring .run { font-weight: 800; font-size: 14px; white-space: nowrap; }
+
+  .stats { display: grid; gap: 12px; }
+  .st { display: grid; grid-template-columns: 64px 1fr 64px; align-items: center; row-gap: 5px; font-size: 13px; }
+  .st .v { font-weight: 700; }
+  .st .v:last-of-type { text-align: right; }
+  .st .lbl { text-align: center; color: var(--muted); font-size: 12px; }
+  .st .bar { grid-column: 1 / -1; display: flex; gap: 3px; height: 6px; }
+  .st .bar i { display: block; border-radius: 3px; min-width: 3px; }
+
+  .leaders { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .leaders h4 { margin: 0 0 8px; font-size: 13px; padding-left: 8px; border-left: 3px solid var(--c); }
+  .leaders ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .leaders li { display: flex; gap: 10px; align-items: center; min-width: 0; }
+  .leaders img, .leaders .ph { flex: none; width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: var(--chip); }
+  .leaders li div { min-width: 0; display: grid; }
+  .leaders b { font-size: 13px; }
+  .leaders span { font-size: 12px; color: var(--muted); }
+
   @media (max-width: 600px) {
     .games { margin: 12px -16px 0; gap: 6px; }
     .game { border-radius: 0; }
@@ -210,10 +300,19 @@
     </div>
   </header>
   <div class="legend" aria-hidden="true"><span><i class="l-td"></i>Touchdown</span><span><i class="l-fg"></i>FG / safety</span><span><i class="l-to"></i>Turnover</span><span>— win odds</span></div>
+  <div class="sortbar" id="sortbar" hidden></div>
   <main id="main"><div class="msg">Loading games…</div></main>
   <footer>
     <button id="refresh"><span id="updated"></span></button>
   </footer>
+</div>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="scrim" data-close></div>
+  <div class="panel" role="dialog" aria-modal="true" aria-label="Game details">
+    <button class="x" data-close aria-label="Close">×</button>
+    <div class="sheet-body" id="sheetBody"></div>
+  </div>
 </div>
 
 <script>
@@ -224,6 +323,48 @@ let weeks = [];        // [{seasontype, week, label, detail, start, end}]
 let idx = -1;          // index into weeks currently shown
 let year = null;
 let timer = null;
+let currentEvents = new Map(); // id -> scoreboard event for the week on screen
+const rawSummaries = new Map(); // id -> { raw, at } full ESPN game summary
+let sortMode = "day";
+try { sortMode = localStorage.getItem("sort") || "day"; } catch {}
+
+// ---- Live sorting ------------------------------------------------------------
+const SORTS = [
+  ["day", "By day"],
+  ["live", "Live first"],
+  ["close", "Closest"],
+  ["thriller", "Nail-biters"],
+  ["ending", "Ending soon"],
+];
+function margin(ev) {
+  const [a, b] = ev.competitions[0].competitors.map(c => Number(c.score) || 0);
+  return Math.abs(a - b);
+}
+function gameElapsed(ev) {
+  const st = ev.status;
+  return st.period ? elapsed(st.period, st.displayClock) : 0;
+}
+function homeWin(ev) {
+  const p = ev.competitions[0].situation?.lastPlay?.probability?.homeWinPercentage;
+  return typeof p === "number" ? p : (summaries.get(ev.id)?.wp?.at(-1)?.[1] ?? 0.5);
+}
+function sortLive(list) {
+  const by = {
+    live: (a, b) => new Date(a.date) - new Date(b.date),
+    close: (a, b) => margin(a) - margin(b) || gameElapsed(b) - gameElapsed(a),
+    thriller: (a, b) => Math.abs(homeWin(a) - 0.5) - Math.abs(homeWin(b) - 0.5),
+    ending: (a, b) => gameElapsed(b) - gameElapsed(a),
+  }[sortMode];
+  return by ? list.slice().sort(by) : list;
+}
+function renderSortbar(liveCount) {
+  const bar = $("sortbar");
+  bar.hidden = !liveCount;
+  if (!liveCount) return;
+  const html = SORTS.map(([k, label]) =>
+    `<button data-sort="${k}" class="${k === sortMode ? "on" : ""}">${label}</button>`).join("");
+  if (bar.innerHTML !== html) bar.innerHTML = html;
+}
 const summaries = new Map(); // event id -> parsed timeline data
 
 function buildWeeks(league) {
@@ -318,8 +459,14 @@ function render(data) {
     return;
   }
 
+  currentEvents = new Map(events.map(e => [e.id, e]));
+  const live = events.filter(e => e.status?.type?.state === "in");
+  renderSortbar(live.length);
+  const pullLive = live.length && sortMode !== "day";
+  const rest = pullLive ? events.filter(e => e.status.type.state !== "in") : events;
+
   const groups = new Map();
-  for (const ev of events) {
+  for (const ev of rest) {
     const d = new Date(ev.date);
     const k = dayKey(d);
     if (!groups.has(k)) groups.set(k, { date: d, games: [] });
@@ -327,6 +474,10 @@ function render(data) {
   }
 
   let html = "";
+  if (pullLive) {
+    html += `<section class="day"><div class="dayhead now livehead">Live now · ${live.length}</div>`;
+    html += `<div class="games">${sortLive(live).map(gameCard).join("")}</div></section>`;
+  }
   for (const { date, games } of groups.values()) {
     const lbl = dayLabel(date);
     const dateStr = date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -341,6 +492,7 @@ function render(data) {
   }
 
   patchMain(html);
+  refreshSheet();
   loadTimelines(events);
   const anyLive = events.some(e => e.status?.type?.state === "in");
   const startsSoon = events.some(e => e.status?.type?.state === "pre" && new Date(e.date) - Date.now() < 15 * 60 * 1000 && new Date(e.date) > Date.now() - 3600e3);
@@ -572,12 +724,186 @@ function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+// ---- Game details sheet ----------------------------------------------------
+let sheetId = null;
+
+async function getSummary(id, maxAge) {
+  const hit = rawSummaries.get(id);
+  if (hit && Date.now() - hit.at < maxAge) return hit.raw;
+  const res = await fetch(API.replace("/scoreboard", "/summary") + "?event=" + id, { cache: "no-store" });
+  if (!res.ok) throw new Error("ESPN returned " + res.status);
+  const raw = await res.json();
+  rawSummaries.set(id, { raw, at: Date.now() });
+  return raw;
+}
+
+function openGame(id) {
+  if (location.hash !== "#g" + id) location.hash = "g" + id;
+  else showSheet(id);
+}
+function closeSheet() {
+  if (location.hash.startsWith("#g")) history.back(); else hideSheet();
+}
+function hideSheet() {
+  sheetId = null;
+  $("sheet").hidden = true;
+  document.body.classList.remove("locked");
+}
+function onHash() {
+  const m = /^#g(\d+)$/.exec(location.hash);
+  if (m) showSheet(m[1]); else hideSheet();
+}
+
+async function showSheet(id) {
+  const ev = currentEvents.get(id);
+  sheetId = id;
+  $("sheet").hidden = false;
+  document.body.classList.add("locked");
+  if (!ev) { $("sheetBody").innerHTML = '<div class="msg">Game not in this week.</div>'; return; }
+  $("sheetBody").innerHTML = detailHTML(ev, rawSummaries.get(id)?.raw);
+  $("sheet").querySelector(".panel").scrollTop = 0;
+  try {
+    const raw = await getSummary(id, ev.status.type.state === "post" ? Infinity : 15000);
+    if (sheetId === id) $("sheetBody").innerHTML = detailHTML(currentEvents.get(id) || ev, raw);
+  } catch (err) { /* header still shows; sections need the summary */ }
+}
+
+// Called after each scoreboard refresh: keep an open live game current.
+async function refreshSheet() {
+  if (!sheetId) return;
+  const id = sheetId, ev = currentEvents.get(id);
+  if (!ev) return;
+  let raw = rawSummaries.get(id)?.raw;
+  if (ev.status.type.state === "in") { try { raw = await getSummary(id, 15000); } catch {} }
+  if (sheetId !== id) return;
+  const html = detailHTML(ev, raw);
+  const body = $("sheetBody");
+  if (body.innerHTML !== html) {
+    const panel = $("sheet").querySelector(".panel"), y = panel.scrollTop;
+    body.innerHTML = html;
+    panel.scrollTop = y;
+  }
+}
+
+function detailHTML(ev, raw) {
+  const comp = ev.competitions[0];
+  const st = ev.status, state = st.type.state;
+  const home = comp.competitors.find(c => c.homeAway === "home");
+  const away = comp.competitors.find(c => c.homeAway === "away");
+  const teamById = (id) => (id === home.team.id ? home : away);
+  const colorOf = (id) => (id === home.team.id ? "var(--h)" : "var(--a)");
+  const vars = `--a:#${away.team.color || "333"};--h:#${home.team.color || "333"}`;
+  let html = `<div class="hero">${gameCard(ev).replace('class="game', 'class="game big')}</div>`;
+
+  // Facts line
+  const date = new Date(ev.date).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  const venue = raw?.gameInfo?.venue || comp.venue;
+  const w = raw?.gameInfo?.weather;
+  const odds = raw?.pickcenter?.[0];
+  const tv = [...new Set((comp.broadcasts || []).flatMap(b => b.names || []))].join(", ");
+  const facts = [
+    ["Kickoff", date],
+    venue && ["Stadium", [venue.fullName, venue.address?.city].filter(Boolean).join(", ")],
+    tv && ["TV", tv],
+    w?.temperature != null && ["Weather", `${w.temperature}°${w.conditionId && isNaN(w.conditionId) ? " · " + w.conditionId : ""}`],
+    odds?.details && ["Line", `${odds.details}${odds.overUnder ? " · O/U " + odds.overUnder : ""}`],
+  ].filter(Boolean);
+  html += `<dl class="facts">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`;
+
+  // Current drive (live)
+  const cur = state === "in" ? raw?.drives?.current : null;
+  if (cur?.plays?.length) {
+    const plays = cur.plays.slice(-4).reverse();
+    html += `<section class="sec"><h3>Current drive <span>${esc(cur.team?.abbreviation || "")} · ${esc(cur.description || "")}</span></h3>
+      <ol class="plays">${plays.map(p => `<li><b>${esc(p.start?.shortDownDistanceText || p.type?.text || "")}</b>${esc(p.text || "")}</li>`).join("")}</ol></section>`;
+  }
+
+  // Line score
+  const ls = (c) => (c.linescores || []).map(l => l.value ?? l.displayValue);
+  const n = Math.max(4, ls(away).length, ls(home).length);
+  if (state !== "pre") {
+    const head = Array.from({ length: n }, (_, i) => `<th>${i < 4 ? i + 1 : "OT"}</th>`).join("");
+    const row = (c) => `<tr><td class="tm"><img src="${esc(c.team.logo || "")}" alt="">${esc(c.team.abbreviation)}</td>${Array.from({ length: n }, (_, i) => `<td>${ls(c)[i] ?? "–"}</td>`).join("")}<td class="tot">${esc(c.score ?? "")}</td></tr>`;
+    html += `<section class="sec"><table class="linescore"><thead><tr><th></th>${head}<th>T</th></tr></thead><tbody>${row(away)}${row(home)}</tbody></table></section>`;
+  }
+
+  if (!raw) return html + (state === "pre" ? "" : '<div class="msg">Loading game details…</div>');
+
+  // Scoring plays
+  const sp = raw.scoringPlays || [];
+  if (sp.length) {
+    let q = 0, items = "";
+    for (const p of sp) {
+      const per = p.period?.number || 1;
+      if (per !== q) { q = per; items += `<li class="qh">${per <= 4 ? "Quarter " + per : "Overtime"}</li>`; }
+      const t = teamById(p.team?.id);
+      items += `<li class="sp" style="--c:${colorOf(p.team?.id)}">
+        <img src="${esc(t.team.logo || "")}" alt="">
+        <div><b>${esc(p.type?.text || p.scoringType?.displayName || "")}</b> <span class="clk">${esc(p.clock?.displayValue || "")}</span><p>${esc(p.text || "")}</p></div>
+        <span class="run">${p.awayScore}–${p.homeScore}</span></li>`;
+    }
+    html += `<section class="sec"><h3>Scoring</h3><ul class="scoring">${items}</ul></section>`;
+  }
+
+  // Team stats
+  const bt = raw.boxscore?.teams || [];
+  const statsOf = (c) => bt.find(t => t.team?.id === c.team.id)?.statistics || [];
+  const A = statsOf(away), H = statsOf(home);
+  if (A.length && H.length) {
+    const pick = ["totalYards", "netPassingYards", "rushingYards", "firstDowns", "thirdDownEff", "redZoneAttempts", "turnovers", "totalPenaltiesYards", "sacksYardsLost", "possessionTime"];
+    const num = (v) => (String(v).includes(":") ? secs(v) : parseFloat(v) || 0);
+    const rows = pick.map(name => {
+      const a = A.find(x => x.name === name), h = H.find(x => x.name === name);
+      if (!a || !h) return "";
+      const av = num(a.displayValue), hv = num(h.displayValue), tot = av + hv || 1;
+      return `<div class="st"><span class="v">${esc(a.displayValue)}</span><span class="lbl">${esc(a.label)}</span><span class="v">${esc(h.displayValue)}</span>
+        <div class="bar"><i style="width:${(av / tot) * 100}%;background:var(--a)"></i><i style="width:${(hv / tot) * 100}%;background:var(--h)"></i></div></div>`;
+    }).join("");
+    if (rows.trim()) html += `<section class="sec" style="${vars}"><h3>Team stats <span>${esc(away.team.abbreviation)} vs ${esc(home.team.abbreviation)}</span></h3><div class="stats">${rows}</div></section>`;
+  }
+
+  // Leaders
+  const leaders = raw.leaders || [];
+  if (leaders.length) {
+    const cats = ["passingYards", "rushingYards", "receivingYards"];
+    const block = (c) => {
+      const L = leaders.find(l => l.team?.id === c.team.id)?.leaders || [];
+      return cats.map(cat => {
+        const top = L.find(x => x.name === cat)?.leaders?.[0];
+        if (!top) return "";
+        const img = top.athlete?.headshot?.href;
+        return `<li>${img ? `<img src="${esc(img)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : '<span class="ph"></span>'}
+          <div><b>${esc(top.athlete?.shortName || "")}</b><span>${esc(top.displayValue || "")}</span></div></li>`;
+      }).join("");
+    };
+    html += `<section class="sec"><h3>${state === "pre" ? "Season leaders" : "Leaders"}</h3><div class="leaders">
+      <div><h4 style="--c:var(--a)">${esc(away.team.shortDisplayName)}</h4><ul>${block(away)}</ul></div>
+      <div><h4 style="--c:var(--h)">${esc(home.team.shortDisplayName)}</h4><ul>${block(home)}</ul></div></div></section>`;
+  }
+  return `<div style="${vars}">${html}</div>`;
+}
+
+$("main").addEventListener("click", (e) => {
+  const g = e.target.closest("article.game");
+  if (g) openGame(g.dataset.id);
+});
+$("sortbar").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-sort]");
+  if (!b) return;
+  sortMode = b.dataset.sort;
+  try { localStorage.setItem("sort", sortMode); } catch {}
+  loadWeek(true);
+});
+$("sheet").addEventListener("click", (e) => { if (e.target.closest("[data-close]")) closeSheet(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && sheetId) closeSheet(); });
+window.addEventListener("hashchange", onHash);
+
 $("prev").onclick = () => { if (idx > 0) { idx--; loadWeek(); } };
 $("next").onclick = () => { if (idx < weeks.length - 1) { idx++; loadWeek(); } };
 $("refresh").onclick = () => (idx >= 0 ? loadWeek(true) : init());
 document.addEventListener("visibilitychange", () => { if (!document.hidden && idx >= 0) loadWeek(true); });
 
-init();
+init().then(onHash);
 </script>
 </body>
 </html>
