@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NFL Schedule</title>
+<meta name="description" content="Who plays tonight, tomorrow, and the rest of the week.">
+<meta name="theme-color" content="#0b0f17">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏈</text></svg>">
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --card: #ffffff;
+    --text: #12151c;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --accent: #d50a0a;
+    --live: #e11d48;
+    --win: #12151c;
+    --lose: #9ca3af;
+    --chip: #eef0f3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b0f17;
+      --card: #141a24;
+      --text: #f3f4f6;
+      --muted: #8b95a5;
+      --line: #232b38;
+      --accent: #ff3b3b;
+      --live: #ff4d6d;
+      --win: #f3f4f6;
+      --lose: #5b6474;
+      --chip: #1d2533;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
+
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0 16px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -0.02em; }
+  h1 span { color: var(--accent); }
+
+  .weeknav { display: flex; align-items: center; gap: 6px; }
+  .weeknav button {
+    appearance: none; border: 1px solid var(--line); background: var(--card); color: var(--text);
+    width: 36px; height: 36px; border-radius: 10px; font-size: 18px; cursor: pointer;
+  }
+  .weeknav button:disabled { opacity: .35; cursor: default; }
+  .weeklabel { min-width: 120px; text-align: center; font-weight: 600; font-size: 14px; }
+  .weeklabel small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; }
+
+  .day { margin-top: 22px; }
+  .dayhead { display: flex; align-items: baseline; gap: 8px; margin: 0 4px 8px; }
+  .dayhead h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; margin: 0; }
+  .dayhead .date { color: var(--muted); font-size: 13px; }
+  .dayhead.now h2 { color: var(--accent); }
+
+  .game {
+    display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center;
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 12px 14px; margin-bottom: 8px;
+  }
+  .game.live { border-color: color-mix(in srgb, var(--live) 50%, var(--line)); }
+  .teams { display: grid; gap: 6px; min-width: 0; }
+  .team { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 10px; }
+  .team img { width: 28px; height: 28px; object-fit: contain; }
+  .team .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .team .rec { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 6px; }
+  .team .score { font-weight: 700; font-size: 18px; font-variant-numeric: tabular-nums; min-width: 28px; text-align: right; }
+  .final .team.loser .name, .final .team.loser .score { color: var(--lose); }
+  .poss::after { content: " 🏈"; font-size: 11px; }
+
+  .meta { text-align: right; font-size: 13px; color: var(--muted); display: grid; gap: 4px; justify-items: end; min-width: 92px; }
+  .meta .time { color: var(--text); font-weight: 600; font-size: 15px; }
+  .meta .tv { background: var(--chip); padding: 2px 8px; border-radius: 999px; font-size: 12px; color: var(--text); white-space: nowrap; }
+  .meta .status-live { color: var(--live); font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+  .meta .status-live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--live); animation: pulse 1.4s infinite; }
+  .meta .down { font-size: 12px; }
+  @keyframes pulse { 50% { opacity: .25; } }
+
+  .byes { margin-top: 28px; color: var(--muted); font-size: 13px; padding: 0 4px; }
+  .byes b { color: var(--text); font-weight: 600; }
+  .msg { text-align: center; color: var(--muted); padding: 48px 0; }
+  footer { margin-top: 32px; text-align: center; color: var(--muted); font-size: 12px; }
+  footer button { background: none; border: 0; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; }
+
+  @media (max-width: 420px) {
+    .team .rec { display: none; }
+    .weeklabel { min-width: 96px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span>NFL</span> Schedule</h1>
+    <div class="weeknav">
+      <button id="prev" aria-label="Previous week">‹</button>
+      <div class="weeklabel" id="weeklabel">…</div>
+      <button id="next" aria-label="Next week">›</button>
+    </div>
+  </header>
+  <main id="main"><div class="msg">Loading games…</div></main>
+  <footer>
+    <span id="updated"></span> · <button id="refresh">Refresh</button>
+  </footer>
+</div>
+
+<script>
+const API = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard";
+const $ = (id) => document.getElementById(id);
+
+let weeks = [];        // [{seasontype, week, label, detail, start, end}]
+let idx = -1;          // index into weeks currently shown
+let year = null;
+let timer = null;
+
+function buildWeeks(league) {
+  const out = [];
+  for (const group of league.calendar || []) {
+    if (!group.entries || group.value === "1") continue; // skip preseason + offseason
+    for (const e of group.entries) {
+      out.push({
+        seasontype: group.value, week: e.value,
+        label: e.label, detail: e.detail,
+        start: new Date(e.startDate), end: new Date(e.endDate),
+      });
+    }
+  }
+  return out;
+}
+
+async function fetchBoard(params) {
+  const qs = new URLSearchParams(params).toString();
+  const res = await fetch(API + (qs ? "?" + qs : ""), { cache: "no-store" });
+  if (!res.ok) throw new Error("ESPN returned " + res.status);
+  return res.json();
+}
+
+async function init() {
+  try {
+    const data = await fetchBoard({});
+    const league = data.leagues[0];
+    year = league.season.year;
+    weeks = buildWeeks(league);
+    const st = String(data.season?.type ?? league.season.type.type);
+    const wk = String(data.week?.number);
+    idx = weeks.findIndex(w => w.seasontype === st && w.week === wk);
+    if (idx === -1) {
+      // Offseason / preseason: pick the next upcoming week, else the last one.
+      const now = new Date();
+      idx = weeks.findIndex(w => w.end > now);
+      if (idx === -1) idx = weeks.length - 1;
+      await loadWeek();
+    } else {
+      render(data);
+    }
+  } catch (err) {
+    showError(err);
+  }
+}
+
+async function loadWeek() {
+  const w = weeks[idx];
+  updateNav();
+  $("main").innerHTML = '<div class="msg">Loading games…</div>';
+  try {
+    const data = await fetchBoard({ seasontype: w.seasontype, week: w.week, dates: year });
+    render(data);
+  } catch (err) {
+    showError(err);
+  }
+}
+
+function updateNav() {
+  const w = weeks[idx];
+  if (!w) return;
+  $("weeklabel").innerHTML = `${esc(w.label)}<small>${esc(w.detail || "")}</small>`;
+  $("prev").disabled = idx <= 0;
+  $("next").disabled = idx >= weeks.length - 1;
+}
+
+function dayKey(d) { return d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate(); }
+
+function dayLabel(d) {
+  const today = new Date();
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+  const k = dayKey(d);
+  if (k === dayKey(today)) return { name: "Today", now: true };
+  if (k === dayKey(tomorrow)) return { name: "Tomorrow", now: false };
+  if (k === dayKey(yesterday)) return { name: "Yesterday", now: false };
+  return { name: d.toLocaleDateString(undefined, { weekday: "long" }), now: false };
+}
+
+function render(data) {
+  updateNav();
+  const events = (data.events || []).slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+  if (!events.length) {
+    $("main").innerHTML = '<div class="msg">No games scheduled this week.</div>';
+    stamp(false);
+    return;
+  }
+
+  const groups = new Map();
+  for (const ev of events) {
+    const d = new Date(ev.date);
+    const k = dayKey(d);
+    if (!groups.has(k)) groups.set(k, { date: d, games: [] });
+    groups.get(k).games.push(ev);
+  }
+
+  let html = "";
+  for (const { date, games } of groups.values()) {
+    const lbl = dayLabel(date);
+    const dateStr = date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    html += `<section class="day"><div class="dayhead${lbl.now ? " now" : ""}"><h2>${lbl.name}</h2><span class="date">${dateStr}</span></div>`;
+    html += games.map(gameCard).join("");
+    html += `</section>`;
+  }
+
+  const byes = data.week?.teamsOnBye || [];
+  if (byes.length) {
+    html += `<div class="byes"><b>On bye:</b> ${byes.map(t => esc(t.shortDisplayName || t.displayName)).join(", ")}</div>`;
+  }
+
+  $("main").innerHTML = html;
+  const anyLive = events.some(e => e.status?.type?.state === "in");
+  const startsSoon = events.some(e => e.status?.type?.state === "pre" && new Date(e.date) - Date.now() < 15 * 60 * 1000 && new Date(e.date) > Date.now() - 3600e3);
+  stamp(anyLive || startsSoon);
+}
+
+function gameCard(ev) {
+  const comp = ev.competitions[0];
+  const state = ev.status.type.state; // pre | in | post
+  const home = comp.competitors.find(c => c.homeAway === "home");
+  const away = comp.competitors.find(c => c.homeAway === "away");
+  const possession = comp.situation?.possession;
+
+  const team = (c) => {
+    const rec = c.records?.find(r => r.type === "total")?.summary || c.records?.[0]?.summary || "";
+    const won = state === "post" && c.winner;
+    const lost = state === "post" && !c.winner && (home.winner || away.winner);
+    const hasBall = state === "in" && possession && possession === c.team.id;
+    return `<div class="team${lost ? " loser" : ""}">
+      <img src="${esc(c.team.logo || "")}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+      <div class="name${hasBall ? " poss" : ""}">${esc(c.team.shortDisplayName || c.team.displayName)}<span class="rec">${esc(rec)}</span></div>
+      <div class="score">${state === "pre" ? "" : esc(c.score ?? "")}</div>
+    </div>`;
+  };
+
+  const tv = [...new Set((comp.broadcasts || []).flatMap(b => b.names || []))].join(" / ");
+  let meta;
+  if (state === "pre") {
+    const t = new Date(ev.date).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    const tbd = ev.status.type.name === "STATUS_SCHEDULED" && comp.timeValid === false;
+    meta = `<div class="time">${tbd ? "TBD" : t}</div>`;
+  } else if (state === "in") {
+    meta = `<div class="status-live">${esc(ev.status.type.shortDetail)}</div>`;
+    if (comp.situation?.downDistanceText) meta += `<div class="down">${esc(comp.situation.downDistanceText)}</div>`;
+  } else {
+    meta = `<div>${esc(ev.status.type.shortDetail)}</div>`;
+  }
+  if (tv) meta += `<div class="tv">${esc(tv)}</div>`;
+
+  const cls = state === "in" ? " live" : state === "post" ? " final" : "";
+  return `<article class="game${cls}">
+    <div class="teams">${team(away)}${team(home)}</div>
+    <div class="meta">${meta}</div>
+  </article>`;
+}
+
+function stamp(live) {
+  $("updated").textContent = "Updated " + new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  clearTimeout(timer);
+  if (live) timer = setTimeout(loadWeek, 30000); // keep scores fresh during games
+}
+
+function showError(err) {
+  $("main").innerHTML = `<div class="msg">Couldn't load the schedule (${esc(err.message)}).<br>Try refresh.</div>`;
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+$("prev").onclick = () => { if (idx > 0) { idx--; loadWeek(); } };
+$("next").onclick = () => { if (idx < weeks.length - 1) { idx++; loadWeek(); } };
+$("refresh").onclick = () => (idx >= 0 ? loadWeek() : init());
+document.addEventListener("visibilitychange", () => { if (!document.hidden && idx >= 0) loadWeek(); });
+
+init();
+</script>
+</body>
+</html>
