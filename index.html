@@ -107,7 +107,7 @@
   /* Game timeline: a strip across the bottom of the tile. Away events sit
      above the midline, home events below; the white line is win probability. */
   .tl {
-    grid-column: 1 / -1; position: relative; height: 46px; margin: 0 12px 12px;
+    grid-column: 1 / -1; position: relative; height: 54px; margin: 0 12px 12px;
     border-radius: 10px; background: rgba(0,0,0,.28); overflow: hidden;
   }
   .tl .q { position: absolute; top: 0; bottom: 0; border-left: 1px solid rgba(255,255,255,.12); }
@@ -119,9 +119,16 @@
   .tl .now { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #fff; box-shadow: 0 0 6px rgba(255,255,255,.8); }
   .tl .ev { position: absolute; transform: translate(-50%, -50%); z-index: 1; display: block; line-height: 0; filter: drop-shadow(0 1px 2px rgba(0,0,0,.45)); }
   .tl .ev.td { z-index: 2; }
+  .tdb {
+    display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%;
+    background: #fff; box-shadow: 0 0 0 2px var(--c);
+  }
+  .tdb img { width: 15px; height: 15px; object-fit: contain; }
+  .legend .tdb { width: 14px; height: 14px; box-shadow: 0 0 0 1.5px var(--muted); }
+  .legend .tdb img { width: 10px; height: 10px; }
   .tl .ev svg { display: block; overflow: visible; }
-  .tl .ev.away { top: 28%; }
-  .tl .ev.home { top: 72%; }
+  .tl .ev.away { top: 27%; }
+  .tl .ev.home { top: 73%; }
 
   .legend { display: flex; gap: 14px; font-size: 11px; color: var(--muted); margin-top: 6px; }
   .legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
@@ -570,7 +577,9 @@ function timeline(ev, data) {
   for (const e of data.scores) {
     if (!e.team) continue;
     const k = shapeKind(e.label);
-    html += `<span class="ev ${k} ${sideOf(e.team)}" style="left:${x(e.t)}%" title="${e.label}: ${esc(e.text)}">${shapeSVG(k, colorOf(e.team))}</span>`;
+    const team = e.team === home.team.id ? home.team : away.team;
+    const icon = k === "td" ? tdBadge(team, colorOf(e.team)) : shapeSVG(k, colorOf(e.team));
+    html += `<span class="ev ${k} ${sideOf(e.team)}" style="left:${x(e.t)}%" title="${e.label}: ${esc(e.text)}">${icon}</span>`;
   }
   return html;
 }
@@ -586,14 +595,25 @@ function shapeKind(label) {
   return { TD: "td", FG: "fg", SF: "sf" }[label] || "sf";
 }
 function shapeSVG(kind, color, size) {
-  const s = size ?? { td: 15, fg: 14, sf: 12 }[kind];
-  const st = 'stroke="#fff" stroke-width="1.6" stroke-linejoin="round"';
+  const s = size ?? { td: 16, fg: 16, sf: 15 }[kind];
   const body = {
-    td: `<circle cx="8" cy="8" r="6.4" style="fill:${color}" ${st}/>`,
-    fg: `<polygon points="8,1.2 15,14 1,14" style="fill:${color}" ${st}/>`,
-    sf: `<rect x="1.8" y="1.8" width="12.4" height="12.4" rx="1.5" style="fill:${color}" ${st}/>`,
+    // Football: brown oval with white laces.
+    td: `<ellipse cx="8" cy="8" rx="7" ry="4.6" transform="rotate(-30 8 8)" fill="#8b4a22" stroke="#fff" stroke-width="1.2"/>
+         <path d="M5.6 9.4L10.4 6.6M6.9 7.7l.9 1.5M8.2 7l.9 1.5" stroke="#fff" stroke-width="1" stroke-linecap="round"/>`,
+    // Goalpost: crossbar, uprights and base, white casing under team color.
+    fg: `<path d="M8 15V9M3 1.5V9h10V1.5" fill="none" stroke="#fff" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round"/>
+         <path d="M8 15V9M3 1.5V9h10V1.5" fill="none" style="stroke:${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`,
+    // Safety: a "2" badge (worth two points).
+    sf: `<circle cx="8" cy="8" r="7" style="fill:${color}" stroke="#fff" stroke-width="1.5"/>
+         <text x="8" y="11.6" text-anchor="middle" font-size="10" font-weight="800" fill="#fff" font-family="system-ui, sans-serif">2</text>`,
   }[kind];
   return `<svg width="${s}" height="${s}" viewBox="0 0 16 16" aria-hidden="true">${body}</svg>`;
+}
+// Touchdown marker on the timeline: the scoring team's logo on a white badge
+// ringed in team color.
+function tdBadge(team, color) {
+  const logo = team?.logo ? `<img src="${esc(team.logo)}" alt="" loading="lazy">` : "";
+  return `<span class="tdb" style="--c:${color}">${logo}</span>`;
 }
 
 async function loadTimelines(events) {
@@ -977,8 +997,10 @@ $("sheet").addEventListener("click", (e) => { if (e.target.closest("[data-close]
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && sheetId) closeSheet(); });
 window.addEventListener("hashchange", onHash);
 
-$("legend").innerHTML = [["td", "Touchdown"], ["fg", "Field goal"], ["sf", "Safety"]]
-  .map(([k, label]) => `<span>${shapeSVG(k, "var(--muted)", 11)}${label}</span>`).join("") + "<span>— win odds</span>";
+$("legend").innerHTML =
+  `<span>${tdBadge({ logo: "https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png" }, "var(--muted)")}Touchdown</span>` +
+  `<span>${shapeSVG("fg", "var(--muted)", 13)}Field goal</span>` +
+  `<span>${shapeSVG("sf", "var(--muted)", 13)}Safety</span><span>— win odds</span>`;
 
 $("prev").onclick = () => { if (idx > 0) { idx--; loadWeek(); } };
 $("next").onclick = () => { if (idx < weeks.length - 1) { idx++; loadWeek(); } };
