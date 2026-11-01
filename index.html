@@ -5,33 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>NFL Schedule</title>
 <meta name="description" content="Who plays tonight, tomorrow, and the rest of the week.">
-<meta name="theme-color" content="#0b0f17">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏈</text></svg>">
 <style>
   :root {
-    --bg: #f4f5f7;
-    --card: #ffffff;
-    --text: #12151c;
-    --muted: #6b7280;
-    --line: #e5e7eb;
-    --accent: #d50a0a;
-    --live: #e11d48;
-    --win: #12151c;
-    --lose: #9ca3af;
-    --chip: #eef0f3;
+    --bg: #ffffff;
+    --text: #111111;
+    --muted: #8a8a8a;
+    --faint: #b8b8b8;
+    --line: #ececec;
+    --live: #e5484d;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #0b0f17;
-      --card: #141a24;
-      --text: #f3f4f6;
-      --muted: #8b95a5;
-      --line: #232b38;
-      --accent: #ff3b3b;
-      --live: #ff4d6d;
-      --win: #f3f4f6;
-      --lose: #5b6474;
-      --chip: #1d2533;
+      --bg: #0a0a0a;
+      --text: #ededed;
+      --muted: #7a7a7a;
+      --faint: #4a4a4a;
+      --line: #1c1c1c;
+      --live: #ff6369;
     }
   }
   * { box-sizing: border-box; }
@@ -39,78 +32,61 @@
   body {
     background: var(--bg);
     color: var(--text);
-    font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font: 15px/1.45 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
+    font-variant-numeric: tabular-nums;
   }
-  .wrap { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
+  .wrap { max-width: 520px; margin: 0 auto; padding: 40px 16px 64px; }
 
-  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0 16px; }
-  h1 { font-size: 22px; margin: 0; letter-spacing: -0.02em; }
-  h1 span { color: var(--accent); }
-
-  .weeknav { display: flex; align-items: center; gap: 6px; }
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .weeklabel { font-size: 15px; font-weight: 600; }
+  .weeklabel small { margin-left: 8px; color: var(--muted); font-weight: 400; }
+  .weeknav { display: flex; gap: 2px; }
   .weeknav button {
-    appearance: none; border: 1px solid var(--line); background: var(--card); color: var(--text);
-    width: 36px; height: 36px; border-radius: 10px; font-size: 18px; cursor: pointer;
+    appearance: none; border: 0; background: none; color: var(--muted);
+    font: inherit; font-size: 18px; width: 32px; height: 32px; cursor: pointer; border-radius: 6px;
   }
-  .weeknav button:disabled { opacity: .35; cursor: default; }
-  .weeklabel { min-width: 120px; text-align: center; font-weight: 600; font-size: 14px; }
-  .weeklabel small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; }
+  .weeknav button:hover:not(:disabled) { color: var(--text); }
+  .weeknav button:disabled { color: var(--faint); opacity: .4; cursor: default; }
 
-  .day { margin-top: 22px; }
-  .dayhead { display: flex; align-items: baseline; gap: 8px; margin: 0 4px 8px; }
-  .dayhead h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; margin: 0; }
-  .dayhead .date { color: var(--muted); font-size: 13px; }
-  .dayhead.now h2 { color: var(--accent); }
+  .day { margin-top: 32px; }
+  .dayhead { font-size: 12px; color: var(--muted); padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  .dayhead.now { color: var(--text); font-weight: 600; }
 
   .game {
-    display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center;
-    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
-    padding: 12px 14px; margin-bottom: 8px;
+    display: grid; grid-template-columns: 76px 1fr auto; column-gap: 16px; align-items: start;
+    padding: 12px 0; border-bottom: 1px solid var(--line);
   }
-  .game.live { border-color: color-mix(in srgb, var(--live) 50%, var(--line)); }
-  .teams { display: grid; gap: 6px; min-width: 0; }
-  .team { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 10px; }
-  .team img { width: 28px; height: 28px; object-fit: contain; }
-  .team .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .team .rec { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 6px; }
-  .team .score { font-weight: 700; font-size: 18px; font-variant-numeric: tabular-nums; min-width: 28px; text-align: right; }
-  .final .team.loser .name, .final .team.loser .score { color: var(--lose); }
-  .poss::after { content: " 🏈"; font-size: 11px; }
+  .when { font-size: 13px; color: var(--muted); padding-top: 1px; line-height: 1.5; }
+  .when .live { color: var(--live); }
+  .when .tv { display: block; font-size: 12px; color: var(--faint); }
+  .teams, .scores { display: grid; row-gap: 2px; }
+  .scores { text-align: right; min-width: 24px; }
+  .final .loser { color: var(--muted); }
+  .team { display: flex; align-items: center; gap: 10px; }
+  .logo { flex: none; width: 20px; height: 20px; display: inline-block; }
+  .logo img { width: 20px; height: 20px; object-fit: contain; display: block; }
+  .final .loser .logo { opacity: .45; }
 
-  .meta { text-align: right; font-size: 13px; color: var(--muted); display: grid; gap: 4px; justify-items: end; min-width: 92px; }
-  .meta .time { color: var(--text); font-weight: 600; font-size: 15px; }
-  .meta .tv { background: var(--chip); padding: 2px 8px; border-radius: 999px; font-size: 12px; color: var(--text); white-space: nowrap; }
-  .meta .status-live { color: var(--live); font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
-  .meta .status-live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--live); animation: pulse 1.4s infinite; }
-  .meta .down { font-size: 12px; }
-  @keyframes pulse { 50% { opacity: .25; } }
-
-  .byes { margin-top: 28px; color: var(--muted); font-size: 13px; padding: 0 4px; }
-  .byes b { color: var(--text); font-weight: 600; }
-  .msg { text-align: center; color: var(--muted); padding: 48px 0; }
-  footer { margin-top: 32px; text-align: center; color: var(--muted); font-size: 12px; }
-  footer button { background: none; border: 0; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; }
-
-  @media (max-width: 420px) {
-    .team .rec { display: none; }
-    .weeklabel { min-width: 96px; }
-  }
+  .byes { margin-top: 32px; color: var(--muted); font-size: 12px; }
+  .msg { color: var(--muted); padding: 48px 0; font-size: 14px; }
+  footer { margin-top: 40px; color: var(--faint); font-size: 12px; }
+  footer button { background: none; border: 0; padding: 0; color: inherit; cursor: pointer; font: inherit; }
+  footer button:hover { color: var(--text); }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1><span>NFL</span> Schedule</h1>
+    <div class="weeklabel" id="weeklabel">…</div>
     <div class="weeknav">
-      <button id="prev" aria-label="Previous week">‹</button>
-      <div class="weeklabel" id="weeklabel">…</div>
-      <button id="next" aria-label="Next week">›</button>
+      <button id="prev" aria-label="Previous week">←</button>
+      <button id="next" aria-label="Next week">→</button>
     </div>
   </header>
   <main id="main"><div class="msg">Loading games…</div></main>
   <footer>
-    <span id="updated"></span> · <button id="refresh">Refresh</button>
+    <button id="refresh"><span id="updated"></span></button>
   </footer>
 </div>
 
@@ -222,14 +198,14 @@ function render(data) {
   for (const { date, games } of groups.values()) {
     const lbl = dayLabel(date);
     const dateStr = date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-    html += `<section class="day"><div class="dayhead${lbl.now ? " now" : ""}"><h2>${lbl.name}</h2><span class="date">${dateStr}</span></div>`;
+    html += `<section class="day"><div class="dayhead${lbl.now ? " now" : ""}">${lbl.name} · ${dateStr}</div>`;
     html += games.map(gameCard).join("");
     html += `</section>`;
   }
 
   const byes = data.week?.teamsOnBye || [];
   if (byes.length) {
-    html += `<div class="byes"><b>On bye:</b> ${byes.map(t => esc(t.shortDisplayName || t.displayName)).join(", ")}</div>`;
+    html += `<div class="byes">Bye — ${byes.map(t => esc(t.shortDisplayName || t.displayName)).join(", ")}</div>`;
   }
 
   $("main").innerHTML = html;
@@ -243,38 +219,36 @@ function gameCard(ev) {
   const state = ev.status.type.state; // pre | in | post
   const home = comp.competitors.find(c => c.homeAway === "home");
   const away = comp.competitors.find(c => c.homeAway === "away");
-  const possession = comp.situation?.possession;
-
-  const team = (c) => {
-    const rec = c.records?.find(r => r.type === "total")?.summary || c.records?.[0]?.summary || "";
-    const won = state === "post" && c.winner;
-    const lost = state === "post" && !c.winner && (home.winner || away.winner);
-    const hasBall = state === "in" && possession && possession === c.team.id;
-    return `<div class="team${lost ? " loser" : ""}">
-      <img src="${esc(c.team.logo || "")}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
-      <div class="name${hasBall ? " poss" : ""}">${esc(c.team.shortDisplayName || c.team.displayName)}<span class="rec">${esc(rec)}</span></div>
-      <div class="score">${state === "pre" ? "" : esc(c.score ?? "")}</div>
-    </div>`;
+  const decided = state === "post" && (home.winner || away.winner);
+  const cls = (c, base = "") => {
+    const list = [base, decided && !c.winner ? "loser" : ""].filter(Boolean).join(" ");
+    return list ? ` class="${list}"` : "";
   };
+  const logo = (c) => {
+    const src = c.team.logo || "";
+    if (!src) return '<span class="logo"></span>';
+    const dark = src.replace("/nfl/500/", "/nfl/500-dark/");
+    return `<picture class="logo"><source srcset="${esc(dark)}" media="(prefers-color-scheme: dark)"><img src="${esc(src)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></picture>`;
+  };
+  const name = (c) => `<div${cls(c, "team")}>${logo(c)}<span>${esc(c.team.shortDisplayName || c.team.displayName)}</span></div>`;
+  const score = (c) => `<div${cls(c)}>${state === "pre" ? "" : esc(c.score ?? "")}</div>`;
 
-  const tv = [...new Set((comp.broadcasts || []).flatMap(b => b.names || []))].join(" / ");
-  let meta;
+  const tv = [...new Set((comp.broadcasts || []).flatMap(b => b.names || []))].join(", ");
+  let when;
   if (state === "pre") {
-    const t = new Date(ev.date).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-    const tbd = ev.status.type.name === "STATUS_SCHEDULED" && comp.timeValid === false;
-    meta = `<div class="time">${tbd ? "TBD" : t}</div>`;
+    when = comp.timeValid === false ? "TBD"
+      : new Date(ev.date).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
   } else if (state === "in") {
-    meta = `<div class="status-live">${esc(ev.status.type.shortDetail)}</div>`;
-    if (comp.situation?.downDistanceText) meta += `<div class="down">${esc(comp.situation.downDistanceText)}</div>`;
+    when = `<span class="live">${esc(ev.status.type.shortDetail)}</span>`;
   } else {
-    meta = `<div>${esc(ev.status.type.shortDetail)}</div>`;
+    when = esc(ev.status.type.shortDetail);
   }
-  if (tv) meta += `<div class="tv">${esc(tv)}</div>`;
+  if (tv && state !== "post") when += `<span class="tv">${esc(tv)}</span>`;
 
-  const cls = state === "in" ? " live" : state === "post" ? " final" : "";
-  return `<article class="game${cls}">
-    <div class="teams">${team(away)}${team(home)}</div>
-    <div class="meta">${meta}</div>
+  return `<article class="game${state === "post" ? " final" : ""}">
+    <div class="when">${when}</div>
+    <div class="teams">${name(away)}${name(home)}</div>
+    <div class="scores">${score(away)}${score(home)}</div>
   </article>`;
 }
 
