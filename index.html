@@ -447,6 +447,9 @@
   footer button:hover { color: var(--text); }
   footer kbd { font: inherit; border: 1px solid var(--faint); border-radius: 4px; padding: 0 4px; }
   @media (hover: none) { footer .keys { display: none; } }
+  footer .credits { margin-left: auto; }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
 </style>
 </head>
 <body>
@@ -469,6 +472,7 @@
   <footer>
     <button id="refresh"><span id="updated"></span></button>
     <span class="keys"><kbd>←</kbd> <kbd>→</kbd> weeks · <kbd>J</kbd> <kbd>K</kbd> games · <kbd>Esc</kbd> close</span>
+    <span class="credits">Made by <a href="https://shaunandrews.com" rel="author">Shaun Andrews</a> · <a href="https://github.com/shaunandrews/football">GitHub</a></span>
   </footer>
 </div>
 
