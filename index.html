@@ -60,16 +60,25 @@
   }
   .top.stuck { border-bottom-color: var(--line); }
   .topin {
-    max-width: 720px; margin: 0 auto; padding: calc(14px + env(safe-area-inset-top)) 16px 12px;
-    display: grid; grid-template-columns: 1fr auto; align-items: center; row-gap: 12px;
+    max-width: 720px; margin: 0 auto; padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+    display: grid; grid-template-columns: 1fr auto; align-items: center; row-gap: 10px;
   }
   @media (min-width: 980px) {
     .topin { max-width: 1480px; padding: 18px 32px; display: flex; gap: 20px; }
   }
-  .wk { display: grid; min-width: 0; }
-  @media (min-width: 980px) { .wk { display: flex; align-items: baseline; gap: 18px; } }
   .brand { font-size: 12px; font-weight: 800; letter-spacing: .22em; text-transform: uppercase; color: var(--live); }
-  .weeklabel { font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .weeklabel { min-width: 0; font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Schedule | Standings switch. */
+  .tabs { display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--chip); }
+  .tabs button {
+    appearance: none; border: 0; cursor: pointer; font: inherit; font-size: 13px; font-weight: 600;
+    padding: 5px 12px; border-radius: 999px; background: none; color: var(--muted);
+  }
+  .tabs button:hover { color: var(--text); }
+  .tabs button[aria-selected="true"] { background: var(--bg); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  body.standings .weeknav, body.standings .sortbar, body.standings .legend, body.standings #main, body.standings footer .keys { display: none; }
+  body:not(.standings) #standings { display: none; }
   .weeklabel small { margin-left: 8px; color: var(--muted); font-weight: 400; font-size: 14px; }
   .weeknav { display: flex; gap: 4px; }
   .weeknav button {
@@ -440,6 +449,37 @@
     .side .sc { font-size: 28px; margin: 0 10px; }
   }
 
+  /* ---- Standings ---------------------------------------------------------
+     Every team ranked league-wide; a team-color edge on each row, like the
+     scoring lists in game details. Extra columns appear as width allows. */
+  .table { width: 100%; margin-top: 20px; border-collapse: collapse; font-size: 14px; }
+  .table th {
+    font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em;
+    text-align: right; padding: 0 8px 8px; white-space: nowrap;
+  }
+  .table td { text-align: right; padding: 10px 8px; border-top: 1px solid var(--line); white-space: nowrap; }
+  .table .rk { width: 1%; text-align: left; color: var(--muted); font-weight: 600; padding-left: 10px; box-shadow: inset 3px 0 var(--c); }
+  .table th.rk { box-shadow: none; }
+  .table th.tm, .table td.tm { text-align: left; width: 100%; }
+  .table .tm > div { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .table .tm img { flex: none; width: 28px; height: 28px; object-fit: contain; }
+  .table .tm b { font-weight: 700; }
+  .table .tm small { display: block; font-size: 12px; color: var(--muted); }
+  .table .tm .full { display: none; }
+  .table .rec { font-weight: 700; }
+  .table .up { color: #16a34a; }
+  .table .dn { color: var(--live); }
+  .table .seed { font-style: normal; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 4px; background: var(--chip); color: var(--text); margin-left: 6px; vertical-align: 1px; }
+  .table .wide { display: none; }
+  @media (max-width: 420px) {
+    .table th, .table td { padding-left: 5px; padding-right: 5px; }
+    .table .tm > div { gap: 8px; }
+    .table .tm img { width: 24px; height: 24px; }
+    .table .pct { display: none; }
+  }
+  @media (min-width: 560px) { .table .tm .full { display: inline; } .table .tm .short { display: none; } }
+  @media (min-width: 980px) { .table .wide { display: table-cell; } }
+
   .byes { margin-top: 32px; color: var(--muted); font-size: 12px; }
   .msg { color: var(--muted); padding: 48px 0; font-size: 14px; }
   footer { margin-top: 40px; color: var(--faint); font-size: 12px; display: flex; gap: 16px; flex-wrap: wrap; }
@@ -455,10 +495,12 @@
 <body>
 <header class="top" id="top">
   <div class="topin">
-    <div class="wk">
-      <div class="brand">Gridiron</div>
-      <div class="weeklabel" id="weeklabel">…</div>
-    </div>
+    <div class="brand">Gridiron</div>
+    <nav class="tabs" id="tabs" role="tablist" aria-label="View">
+      <button role="tab" data-view="schedule" aria-selected="true">Schedule</button>
+      <button role="tab" data-view="standings" aria-selected="false">Standings</button>
+    </nav>
+    <div class="weeklabel" id="weeklabel">…</div>
     <div class="weeknav">
       <button id="prev" aria-label="Previous week" title="Previous week (←)">←</button>
       <button id="next" aria-label="Next week" title="Next week (→)">→</button>
@@ -469,6 +511,7 @@
 <div class="wrap">
   <div class="legend" id="legend" aria-hidden="true"></div>
   <main id="main"><div class="msg">Loading games…</div></main>
+  <section id="standings"><div class="msg">Loading standings…</div></section>
   <footer>
     <button id="refresh"><span id="updated"></span></button>
     <span class="keys"><kbd>←</kbd> <kbd>→</kbd> weeks · <kbd>J</kbd> <kbd>K</kbd> games · <kbd>Esc</kbd> close</span>
@@ -498,6 +541,8 @@ const rawSummaries = new Map(); // id -> { raw, at } full ESPN game summary
 const summaries = new Map();    // id -> parsed timeline data
 let sortMode = "day";
 try { sortMode = localStorage.getItem("sort") || "day"; } catch {}
+let view = "schedule"; // "schedule" | "standings"
+try { view = localStorage.getItem("view") === "standings" ? "standings" : "schedule"; } catch {}
 
 const mobileQuery = matchMedia("(max-width: 699px)");
 const dockQuery = matchMedia("(min-width: 1180px)");
@@ -604,6 +649,7 @@ async function loadWeek(silent = false) {
 
 function updateNav() {
   const w = weeks[idx];
+  if (view === "standings") return renderStandingsLabel();
   if (!w) return;
   $("weeklabel").innerHTML = `${esc(w.label)}<small>${esc(w.detail || "")}</small>`;
   $("prev").disabled = idx <= 0;
@@ -1000,6 +1046,93 @@ function showError(err) {
 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// ---- Standings -----------------------------------------------------------------
+// Every team ranked across the league: win %, then point differential, then
+// points scored. Conference seeds ride along so playoff position stays visible.
+const STANDINGS = "https://site.api.espn.com/apis/v2/sports/football/nfl/standings?level=3";
+let standings = null;     // { at, season, rows: [...] }
+// Primary colors from ESPN's /teams endpoint, which doesn't allow browser fetches.
+const TEAM_COLORS = {
+  ARI: "a40227", ATL: "a71930", BAL: "29126f", BUF: "00338d", CAR: "0085ca", CHI: "0b1c3a", CIN: "fb4f14", CLE: "472a08",
+  DAL: "002a5c", DEN: "0a2343", DET: "0076b6", GB: "204e32", HOU: "021018", IND: "003b75", JAX: "007487", KC: "e31837",
+  LAC: "0080c6", LAR: "003594", LV: "000000", MIA: "008e97", MIN: "4f2683", NE: "002a5c", NO: "d3bc8d", NYG: "003c7f",
+  NYJ: "115740", PHI: "06424d", PIT: "000000", SEA: "002a5c", SF: "aa0000", TB: "bd1c36", TEN: "4495d2", WSH: "5a1414",
+};
+
+function setView(v) {
+  view = v;
+  try { localStorage.setItem("view", v); } catch {}
+  document.body.classList.toggle("standings", v === "standings");
+  document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.view === v)));
+  hideScrub();
+  if (v === "standings") { if (sheetId) closeSheet(); loadStandings(); }
+  updateNav();
+}
+
+function renderStandingsLabel() {
+  const s = standings?.season;
+  $("weeklabel").innerHTML = s ? `${esc(s)} Season` : "Standings";
+}
+
+async function loadStandings(force = false) {
+  if (standings && !force && Date.now() - standings.at < 5 * 60e3) return renderStandings();
+  try {
+    const res = await fetch(STANDINGS, { cache: "no-store" });
+    if (!res.ok) throw new Error("ESPN returned " + res.status);
+    const data = await res.json();
+    const rows = [];
+    for (const conf of data.children || []) for (const div of conf.children || []) {
+      for (const e of div.standings.entries || []) {
+        const st = Object.fromEntries(e.stats.map(s => [s.name, s]));
+        const num = (k) => Number(st[k]?.value) || 0;
+        rows.push({
+          team: e.team, conf: conf.abbreviation, div: div.name,
+          color: "#" + (TEAM_COLORS[e.team.abbreviation] || "555"),
+          w: num("wins"), l: num("losses"), t: num("ties"),
+          pct: num("winPercent"), diff: num("pointDifferential"),
+          pf: num("pointsFor"), pa: num("pointsAgainst"), seed: num("playoffSeed"),
+          streak: st.streak?.displayValue || "",
+          home: st.Home?.displayValue || "", road: st.Road?.displayValue || "",
+          vsDiv: st["vs. Div."]?.displayValue || "", vsConf: st["vs. Conf."]?.displayValue || "",
+        });
+      }
+    }
+    rows.sort((a, b) => b.pct - a.pct || b.diff - a.diff || b.pf - a.pf);
+    standings = { at: Date.now(), season: data.season?.year ?? year, rows };
+    renderStandings();
+    $("updated").textContent = "Updated " + new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  } catch (err) {
+    if (!standings) $("standings").innerHTML = `<div class="msg">Couldn't load standings (${esc(err.message)}).<br>Try refresh.</div>`;
+  }
+}
+
+function renderStandings() {
+  updateNav();
+  const rec = (r) => `${r.w}-${r.l}${r.t ? "-" + r.t : ""}`;
+  const signed = (n) => (n > 0 ? "+" + n : String(n));
+  const body = standings.rows.map((r, i) => `<tr style="--c:${esc(r.color)}">
+      <td class="rk">${i + 1}</td>
+      <td class="tm"><div><img src="${esc(r.team.logos?.[0]?.href || "")}" alt="">
+        <div><b><span class="full">${esc(r.team.displayName)}</span><span class="short">${esc(r.team.shortDisplayName)}</span></b>
+        <small>${esc(r.div)}${r.seed && r.seed <= 7 ? `<i class="seed" title="${esc(r.conf)} playoff seed">${esc(r.conf)} ${r.seed}</i>` : ""}</small></div></div></td>
+      <td class="rec">${rec(r)}</td>
+      <td class="pct">${r.pct.toFixed(3).replace(/^0/, "")}</td>
+      <td class="wide">${r.pf}</td>
+      <td class="wide">${r.pa}</td>
+      <td class="${r.diff > 0 ? "up" : r.diff < 0 ? "dn" : ""}">${signed(r.diff)}</td>
+      <td class="wide">${esc(r.home)}</td>
+      <td class="wide">${esc(r.road)}</td>
+      <td class="wide">${esc(r.vsDiv)}</td>
+      <td class="wide">${esc(r.vsConf)}</td>
+      <td>${esc(r.streak)}</td>
+    </tr>`).join("");
+  $("standings").innerHTML = `<table class="table">
+    <thead><tr><th class="rk">#</th><th class="tm">Team</th><th>Record</th><th class="pct">Pct</th>
+      <th class="wide">PF</th><th class="wide">PA</th><th>Diff</th>
+      <th class="wide">Home</th><th class="wide">Road</th><th class="wide">Div</th><th class="wide">Conf</th><th>Strk</th></tr></thead>
+    <tbody>${body}</tbody></table>`;
 }
 
 // ---- Chart scrubbing ---------------------------------------------------------
@@ -1493,6 +1626,7 @@ document.addEventListener("keydown", (e) => {
   if (tile && e.target === tile && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); return openGame(tile.dataset.id); }
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
   if (e.key === "j" || e.key === "k") return stepGame(e.key === "j" ? 1 : -1);
+  if (view === "standings") return;
   const modal = sheetId && !document.body.classList.contains("docked");
   if (!modal && !chart && e.key === "ArrowLeft" && idx > 0) { idx--; loadWeek(); }
   if (!modal && !chart && e.key === "ArrowRight" && idx < weeks.length - 1) { idx++; loadWeek(); }
@@ -1513,9 +1647,11 @@ $("legend").innerHTML =
 
 $("prev").onclick = () => { if (idx > 0) { idx--; loadWeek(); } };
 $("next").onclick = () => { if (idx < weeks.length - 1) { idx++; loadWeek(); } };
-$("refresh").onclick = () => (idx >= 0 ? loadWeek(true) : init());
+$("refresh").onclick = () => (view === "standings" ? loadStandings(true) : idx >= 0 ? loadWeek(true) : init());
 document.addEventListener("visibilitychange", () => { if (!document.hidden && idx >= 0) loadWeek(true); });
+$("tabs").onclick = (e) => { const b = e.target.closest("button[data-view]"); if (b && b.dataset.view !== view) setView(b.dataset.view); };
 
+setView(view);
 init().then(onHash);
 </script>
 </body>
