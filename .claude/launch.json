@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "gridiron",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "3170"],
+      "port": 3170
+    }
+  ]
+}
